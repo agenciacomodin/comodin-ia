@@ -4,6 +4,7 @@ import { AIWalletService, AIUsageRequest } from './ai-wallet-service';
 import { getActiveAIProviders, getDecryptedApiKey } from './ai-providers';
 import { AIUsageType } from '@prisma/client';
 import { db } from './db';
+import { createHash } from 'crypto';
 
 export interface AIBrokerRequest {
   organizationId: string;
@@ -55,22 +56,63 @@ export interface ProviderConfig {
 export class AIBrokerService {
 
   /**
-   * Procesar una solicitud de IA de forma completa
+   * Procesar una solicitud de IA de forma completa con caché inteligente
    * 
-   * Flujo completo:
-   * 1. Verificar saldo suficiente
-   * 2. Obtener configuración del proveedor
-   * 3. Llamar a la API externa
-   * 4. Calcular costos
-   * 5. Debitar de la billetera
-   * 6. Registrar transacción
-   * 7. Retornar respuesta
+   * Flujo optimizado:
+   * 1. Generar hash del prompt
+   * 2. Buscar en caché inteligente  
+   * 3. Si hay caché: devolver y cobrar tarifa simbólica
+   * 4. Si no hay caché: flujo completo + guardar en caché
+   * 5. Verificar saldo suficiente
+   * 6. Obtener configuración del proveedor
+   * 7. Llamar a la API externa
+   * 8. Calcular costos
+   * 9. Debitar de la billetera
+   * 10. Registrar transacción
+   * 11. Guardar en caché para futuros usos
+   * 12. Retornar respuesta
    */
   static async processAIRequest(request: AIBrokerRequest): Promise<AIBrokerResponse> {
     const startTime = Date.now();
     
     try {
-      // 1. Verificar que la organización tenga saldo suficiente
+      // 🧠 SISTEMA DE CACHÉ INTELIGENTE
+      
+      // 1. Generar hash del prompt normalizado
+      const promptHash = this.generatePromptHash(request.prompt);
+      
+      // 2. Buscar respuesta en caché
+      const cachedResponse = await this.getCachedResponse(request.organizationId, promptHash);
+      
+      if (cachedResponse) {
+        console.log('💡 Caché hit - devolviendo respuesta almacenada');
+        
+        // 3. Procesar uso de caché (tarifa simbólica: 1/10 del costo normal)
+        const cacheUsageResult = await this.processCacheUsage(request, cachedResponse);
+        
+        return {
+          success: true,
+          response: cachedResponse.response,
+          transactionId: cacheUsageResult.transactionId,
+          cost: cacheUsageResult.cost,
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            processingTime: Date.now() - startTime
+          },
+          provider: {
+            name: `${cachedResponse.originalProvider} (Caché)`,
+            model: cachedResponse.originalModel
+          }
+        };
+      }
+      
+      console.log('🔄 Caché miss - procesando solicitud normal');
+      
+      // 4. FLUJO NORMAL (sin caché)
+      
+      // 5. Verificar que la organización tenga saldo suficiente
       const hasBalance = await this.checkSufficientBalance(request.organizationId, request.prompt);
       if (!hasBalance) {
         return {
@@ -79,7 +121,7 @@ export class AIBrokerService {
         };
       }
 
-      // 2. Obtener configuración del proveedor de IA apropiado
+      // 6. Obtener configuración del proveedor de IA apropiado
       const providerConfig = await this.getProviderForRequest(request);
       if (!providerConfig) {
         return {
@@ -88,10 +130,10 @@ export class AIBrokerService {
         };
       }
 
-      // 3. Recuperar la clave API maestra
+      // 7. Recuperar la clave API maestra
       const apiKey = await getDecryptedApiKey(providerConfig.id);
 
-      // 4. Realizar llamada a la API del proveedor externo
+      // 8. Realizar llamada a la API del proveedor externo
       const aiResult = await this.callExternalProvider(
         providerConfig, 
         apiKey, 
@@ -107,14 +149,14 @@ export class AIBrokerService {
 
       const processingTime = Date.now() - startTime;
 
-      // 5. Calcular costos finales
+      // 9. Calcular costos finales
       const costs = await this.calculateCosts(
         providerConfig,
         aiResult.usage.inputTokens,
         aiResult.usage.outputTokens
       );
 
-      // 6. Crear registro de uso y debitar de la billetera
+      // 10. Crear registro de uso y debitar de la billetera
       const usageRequest: AIUsageRequest = {
         organizationId: request.organizationId,
         userId: request.userId,
@@ -139,13 +181,30 @@ export class AIBrokerService {
 
       const transaction = await AIWalletService.processAIUsage(usageRequest);
 
-      // 7. Actualizar último uso del proveedor
+      // 11. GUARDAR EN CACHÉ PARA FUTUROS USOS
+      if (aiResult.response) {
+        try {
+          await this.saveToCacheIntelligent(
+            request.organizationId,
+            promptHash,
+            aiResult.response,
+            providerConfig.name,
+            aiResult.modelUsed,
+            costs.providerCost
+          );
+          console.log('💾 Respuesta guardada en caché inteligente');
+        } catch (cacheError) {
+          console.warn('⚠️ Error guardando en caché (no crítico):', cacheError);
+        }
+      }
+
+      // 12. Actualizar último uso del proveedor
       await this.updateProviderLastUsed(providerConfig.id);
 
-      // 8. Retornar respuesta exitosa
+      // 13. Retornar respuesta exitosa
       return {
         success: true,
-        response: aiResult.response,
+        response: aiResult.response || '',
         transactionId: transaction.id,
         cost: {
           providerCost: costs.providerCost,
@@ -471,6 +530,241 @@ export class AIBrokerService {
         totalCost: 0,
         averageResponseTime: 0,
         topProviders: []
+      };
+    }
+  }
+
+  // ============================================
+  // SISTEMA DE CACHÉ INTELIGENTE DE IA
+  // ============================================
+
+  /**
+   * Genera un hash normalizado del prompt para el caché
+   */
+  private static generatePromptHash(prompt: string): string {
+    // Normalizar el prompt para mejorar las coincidencias
+    const normalizedPrompt = prompt
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ') // Normalizar espacios múltiples
+      .replace(/[^\w\s]/g, ''); // Remover puntuación para mejores coincidencias
+
+    return createHash('md5').update(normalizedPrompt).digest('hex');
+  }
+
+  /**
+   * Busca respuesta en el caché inteligente
+   */
+  private static async getCachedResponse(organizationId: string, promptHash: string) {
+    try {
+      const cachedEntry = await db.aICache.findFirst({
+        where: {
+          organizationId,
+          promptHash,
+          isActive: true,
+          OR: [
+            { expiresAt: null }, // Sin expiración
+            { expiresAt: { gt: new Date() } } // No expirado
+          ]
+        },
+        orderBy: { lastUsedAt: 'desc' }
+      });
+
+      return cachedEntry;
+    } catch (error) {
+      console.error('Error buscando en caché:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Procesa el uso de una respuesta desde caché con tarifa simbólica
+   */
+  private static async processCacheUsage(request: AIBrokerRequest, cachedResponse: any) {
+    try {
+      // Calcular tarifa simbólica (1/10 del costo original)
+      const originalCost = cachedResponse.originalCost.toNumber();
+      const symbolicCost = originalCost * 0.1; // 10% del costo original
+      
+      // Crear transacción de uso de caché
+      const usageRequest: AIUsageRequest = {
+        organizationId: request.organizationId,
+        userId: request.userId,
+        userName: request.userName,
+        usageType: request.usageType || AIUsageType.CHAT_RESPONSE,
+        providerName: `Cache-${cachedResponse.originalProvider}`,
+        modelUsed: `${cachedResponse.originalModel} (Cached)`,
+        providerCost: symbolicCost, // Tarifa simbólica
+        inputTokens: 0,
+        outputTokens: 0,
+        processingTime: 0,
+        description: `AI Cache Hit: ${request.usageType || 'CHAT_RESPONSE'}`,
+        metadata: {
+          ...request.metadata,
+          cacheHit: true,
+          originalCost: originalCost,
+          cacheSavings: originalCost - symbolicCost,
+          cacheId: cachedResponse.id
+        }
+      };
+
+      const transaction = await AIWalletService.processAIUsage(usageRequest);
+
+      // Actualizar estadísticas de uso del caché
+      await db.aICache.update({
+        where: { id: cachedResponse.id },
+        data: {
+          hitCount: { increment: 1 },
+          lastUsedAt: new Date()
+        }
+      });
+
+      return {
+        transactionId: transaction.id,
+        cost: {
+          providerCost: symbolicCost,
+          clientCost: symbolicCost * 1.30, // Aplicar mismo margen del 30%
+          margin: 0.30
+        }
+      };
+
+    } catch (error) {
+      console.error('Error procesando uso de caché:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Guarda una respuesta nueva en el caché inteligente
+   */
+  private static async saveToCacheIntelligent(
+    organizationId: string,
+    promptHash: string,
+    response: string,
+    originalProvider: string,
+    originalModel: string,
+    originalCost: number
+  ): Promise<void> {
+    try {
+      // Calcular fecha de expiración (30 días por defecto)
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + 30);
+
+      await db.aICache.create({
+        data: {
+          organizationId,
+          promptHash,
+          response,
+          originalProvider,
+          originalModel,
+          originalCost,
+          hitCount: 0,
+          lastUsedAt: new Date(),
+          expiresAt: expirationDate,
+          isActive: true
+        }
+      });
+
+    } catch (error) {
+      // Si ya existe, actualizar la respuesta
+      if (error instanceof Error && error.message.includes('Unique constraint')) {
+        await db.aICache.update({
+          where: {
+            organizationId_promptHash: {
+              organizationId,
+              promptHash
+            }
+          },
+          data: {
+            response,
+            originalProvider,
+            originalModel,
+            originalCost,
+            lastUsedAt: new Date(),
+            updatedAt: new Date()
+          }
+        });
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Purgar todo el caché de IA (SUPER ADMIN ONLY)
+   */
+  static async purgeAICache(organizationId?: string): Promise<{ deletedCount: number }> {
+    try {
+      const whereClause = organizationId ? { organizationId } : {};
+      
+      const deleteResult = await db.aICache.deleteMany({
+        where: whereClause
+      });
+
+      console.log(`🗑️ Caché de IA purgado: ${deleteResult.count} entradas eliminadas`);
+
+      return { deletedCount: deleteResult.count };
+
+    } catch (error) {
+      console.error('Error purgando caché de IA:', error);
+      throw new Error('Failed to purge AI cache');
+    }
+  }
+
+  /**
+   * Obtener estadísticas del caché inteligente
+   */
+  static async getCacheStats(organizationId?: string): Promise<{
+    totalEntries: number;
+    totalHits: number;
+    averageHitRate: number;
+    totalSavings: number;
+    topCachedQueries: Array<{ promptHash: string; hitCount: number; response: string }>;
+  }> {
+    try {
+      const whereClause = organizationId ? { organizationId } : {};
+      
+      const cacheEntries = await db.aICache.findMany({
+        where: whereClause,
+        orderBy: { hitCount: 'desc' }
+      });
+
+      const totalEntries = cacheEntries.length;
+      const totalHits = cacheEntries.reduce((sum, entry) => sum + entry.hitCount, 0);
+      const averageHitRate = totalEntries > 0 ? totalHits / totalEntries : 0;
+
+      // Calcular ahorro total (diferencia entre costo original vs tarifa simbólica)
+      const totalSavings = cacheEntries.reduce((sum, entry) => {
+        const originalCost = entry.originalCost.toNumber();
+        const symbolicCost = originalCost * 0.1;
+        const savingsPerHit = originalCost - symbolicCost;
+        return sum + (savingsPerHit * entry.hitCount);
+      }, 0);
+
+      const topCachedQueries = cacheEntries
+        .slice(0, 10)
+        .map(entry => ({
+          promptHash: entry.promptHash,
+          hitCount: entry.hitCount,
+          response: entry.response.substring(0, 100) + '...' // Preview
+        }));
+
+      return {
+        totalEntries,
+        totalHits,
+        averageHitRate,
+        totalSavings,
+        topCachedQueries
+      };
+
+    } catch (error) {
+      console.error('Error obteniendo estadísticas de caché:', error);
+      return {
+        totalEntries: 0,
+        totalHits: 0,
+        averageHitRate: 0,
+        totalSavings: 0,
+        topCachedQueries: []
       };
     }
   }

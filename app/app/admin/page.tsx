@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/lib/auth'
 import { AIProvidersManager } from '@/components/admin/ai-providers-manager'
+import { AICacheManager } from '@/components/admin/ai-cache-manager'
 
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions)
@@ -94,6 +95,11 @@ export default async function AdminDashboardPage() {
           <main className="lg:col-span-3">
             <div id="ai-providers">
               <AIProvidersManager />
+            </div>
+
+            {/* Caché Inteligente de IA */}
+            <div className="mt-8">
+              <AICacheManager />
             </div>
 
             {/* Secciones futuras */}

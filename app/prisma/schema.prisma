@@ -142,6 +142,9 @@ model Organization {
   knowledgeSources     KnowledgeSource[]
   knowledgeUsage       KnowledgeUsage[]
   
+  // Cache Inteligente de IA
+  aiCache              AICache[]
+  
   @@map("organizations")
 }
 
@@ -1144,6 +1147,50 @@ model AIAnalysisCache {
   @@index([lastUsedAt])
   @@index([expiresAt])
   @@map("ai_analysis_cache")
+}
+
+// ===========================================
+// SISTEMA DE CACHE INTELIGENTE DE IA
+// ===========================================
+
+// Tabla AICache - Caché inteligente de respuestas de IA para optimizar costos
+model AICache {
+  id             String   @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Hash del prompt del usuario para identificar preguntas repetitivas
+  promptHash     String   // Hash MD5/SHA1 del prompt normalizado
+  
+  // Respuesta almacenada de la IA
+  response       String   @db.Text // Respuesta completa generada por la IA
+  
+  // Metadatos de la respuesta original
+  originalProvider String // Proveedor original (OpenAI, Claude, etc.)
+  originalModel   String  // Modelo original usado
+  originalCost    Decimal @db.Decimal(10, 6) // Costo original de la llamada
+  
+  // Control de uso del caché
+  hitCount       Int      @default(0) // Cuántas veces se ha usado esta respuesta
+  lastUsedAt     DateTime @default(now()) // Última vez que se usó
+  
+  // Configuración de expiración
+  expiresAt      DateTime? // Fecha de expiración opcional
+  isActive       Boolean  @default(true) // Si el caché está activo
+  
+  // Control de fechas
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@unique([organizationId, promptHash]) // Prompt hash único por organización
+  @@index([organizationId])
+  @@index([promptHash])
+  @@index([isActive])
+  @@index([lastUsedAt])
+  @@index([expiresAt])
+  @@map("ai_cache")
 }
 
 // ===========================================
