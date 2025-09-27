@@ -24,6 +24,7 @@ import {
   CONVERSATION_PRIORITY_LABELS 
 } from '@/lib/types'
 import { MessageDirection, MessageType, ConversationStatus } from '@prisma/client'
+import { EnhancedMessageComposer } from './enhanced-message-composer'
 
 interface ChatConversationPanelProps {
   conversation: ConversationDetail | null
@@ -298,39 +299,16 @@ export function ChatConversationPanel({
         </div>
       </div>
 
-      {/* Compositor de mensajes */}
-      <div className="p-4 border-t border-gray-200 bg-white">
-        <div className="flex items-end space-x-2">
-          <Button variant="ghost" size="sm" className="text-gray-500">
-            <Paperclip className="h-5 w-5" />
-          </Button>
-          
-          <div className="flex-1 min-w-0">
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Escribe tu mensaje..."
-              className="resize-none min-h-[40px] max-h-32"
-              rows={1}
-            />
-          </div>
-          
-          <Button variant="ghost" size="sm" className="text-gray-500">
-            <Smile className="h-5 w-5" />
-          </Button>
-          
-          <Button 
-            onClick={handleSendMessage}
-            disabled={!message.trim()}
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      {/* Compositor de mensajes mejorado */}
+      <EnhancedMessageComposer
+        conversationId={conversation.id}
+        onSendMessage={(options) => {
+          onSendMessage(options.content, options.type)
+          // TODO: Manejar archivos y audio aquí
+          console.log('Enviando mensaje con opciones:', options)
+        }}
+        placeholder="Escribe tu mensaje..."
+      />
     </div>
   )
 }

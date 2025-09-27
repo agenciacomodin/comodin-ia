@@ -7,7 +7,9 @@ import {
   ConversationStatus, 
   ConversationPriority,
   MessageType,
-  MessageDirection
+  MessageDirection,
+  WhatsAppConnectionType,
+  WhatsAppConnectionStatus
 } from '@prisma/client'
 
 export type Expense = {
@@ -472,5 +474,203 @@ export const MESSAGE_TYPE_LABELS = {
   LOCATION: 'Ubicación',
   CONTACT: 'Contacto',
   SYSTEM: 'Sistema'
+} as const
+
+// =====================================
+// CANALES DE WHATSAPP
+// =====================================
+
+export interface WhatsAppChannelSummary {
+  id: string
+  name: string
+  phone: string
+  connectionType: WhatsAppConnectionType
+  status: WhatsAppConnectionStatus
+  isActive: boolean
+  isDefault: boolean
+  messagesReceived: number
+  messagesSent: number
+  lastActivity?: Date
+  connectedAt?: Date
+}
+
+export interface WhatsAppChannelDetail extends WhatsAppChannelSummary {
+  organizationId: string
+  qrCode?: string
+  qrExpiration?: Date
+  accessToken?: string
+  appId?: string
+  appSecret?: string
+  webhookVerifyToken?: string
+  phoneNumberId?: string
+  businessAccountId?: string
+  welcomeMessage?: string
+  autoReplyMessage?: string
+  workingHours?: {
+    start: string
+    end: string
+    timezone?: string
+  }
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface WhatsAppChannelCreateRequest {
+  name: string
+  phone: string
+  connectionType: WhatsAppConnectionType
+  // Para conexión QR
+  qrCode?: string
+  // Para conexión API
+  accessToken?: string
+  appId?: string
+  appSecret?: string
+  webhookVerifyToken?: string
+  phoneNumberId?: string
+  businessAccountId?: string
+  // Configuración
+  welcomeMessage?: string
+  autoReplyMessage?: string
+  workingHours?: {
+    start: string
+    end: string
+    timezone?: string
+  }
+  isDefault?: boolean
+}
+
+export interface QRCodeConnectionData {
+  qrCode: string
+  expiration: Date
+  status: 'WAITING' | 'SCANNING' | 'SUCCESS' | 'EXPIRED' | 'ERROR'
+  connectionId?: string
+}
+
+// Labels para los tipos de conexión
+export const WHATSAPP_CONNECTION_TYPE_LABELS = {
+  QR_CODE: 'Conexión Rápida (QR)',
+  API_OFFICIAL: 'Conexión Profesional (API)'
+} as const
+
+export const WHATSAPP_CONNECTION_STATUS_LABELS = {
+  DISCONNECTED: 'Desconectado',
+  CONNECTING: 'Conectando',
+  CONNECTED: 'Conectado',
+  ERROR: 'Error',
+  EXPIRED: 'Expirado'
+} as const
+
+export const WHATSAPP_CONNECTION_STATUS_COLORS = {
+  DISCONNECTED: 'gray',
+  CONNECTING: 'yellow',
+  CONNECTED: 'green',
+  ERROR: 'red',
+  EXPIRED: 'orange'
+} as const
+
+// =====================================
+// RESPUESTAS RÁPIDAS
+// =====================================
+
+export interface QuickReplySummary {
+  id: string
+  title: string
+  shortcut: string
+  content: string
+  category?: string
+  tags: string[]
+  usageCount: number
+  lastUsedAt?: Date
+  createdAt: Date
+  createdByName: string
+}
+
+export interface QuickReplyDetail extends QuickReplySummary {
+  organizationId: string
+  variables?: Record<string, string>
+  isActive: boolean
+  isGlobal: boolean
+  createdBy: string
+  modifiedBy?: string
+  modifiedByName?: string
+  updatedAt: Date
+}
+
+export interface QuickReplyCreateRequest {
+  title: string
+  shortcut: string
+  content: string
+  category?: string
+  tags?: string[]
+  variables?: Record<string, string>
+  isGlobal?: boolean
+}
+
+export interface QuickReplyUpdateRequest extends Partial<QuickReplyCreateRequest> {
+  isActive?: boolean
+}
+
+export interface QuickReplySearchFilters {
+  category?: string
+  tags?: string[]
+  isActive?: boolean
+  isGlobal?: boolean
+  searchTerm?: string
+}
+
+// =====================================
+// COMPOSITOR MEJORADO
+// =====================================
+
+export interface MessageComposerFile {
+  id: string
+  file: File
+  preview?: string
+  type: 'image' | 'document' | 'video' | 'audio'
+  uploadProgress?: number
+  error?: string
+}
+
+export interface AudioRecordingState {
+  isRecording: boolean
+  isPaused: boolean
+  duration: number
+  audioBlob?: Blob
+  audioUrl?: string
+  error?: string
+}
+
+export interface MessageComposerState {
+  content: string
+  files: MessageComposerFile[]
+  audioRecording?: AudioRecordingState
+  showQuickReplies: boolean
+  quickReplySearch: string
+  selectedQuickReply?: QuickReplySummary
+  replyingTo?: MessageSummary
+}
+
+export interface SendMessageOptions {
+  content: string
+  type: MessageType
+  files?: File[]
+  audioBlob?: Blob
+  replyToId?: string
+  quickReplyId?: string
+}
+
+// Configuración de archivos permitidos
+export const ALLOWED_FILE_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
+  video: ['video/mp4', 'video/avi', 'video/mov', 'video/wmv'],
+  audio: ['audio/mp3', 'audio/wav', 'audio/aac', 'audio/ogg']
+} as const
+
+export const MAX_FILE_SIZES = {
+  image: 10 * 1024 * 1024, // 10MB
+  document: 50 * 1024 * 1024, // 50MB
+  video: 100 * 1024 * 1024, // 100MB
+  audio: 20 * 1024 * 1024 // 20MB
 } as const
 

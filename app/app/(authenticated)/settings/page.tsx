@@ -30,7 +30,7 @@ export default async function SettingsPage() {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="general">
               <Settings className="w-4 h-4 mr-2" />
               General
@@ -39,13 +39,17 @@ export default async function SettingsPage() {
               <User className="w-4 h-4 mr-2" />
               Perfil
             </TabsTrigger>
+            <TabsTrigger value="channels">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Canales
+            </TabsTrigger>
+            <TabsTrigger value="quick-replies">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Respuestas
+            </TabsTrigger>
             <TabsTrigger value="notifications">
               <Bell className="w-4 h-4 mr-2" />
               Notificaciones
-            </TabsTrigger>
-            <TabsTrigger value="whatsapp">
-              <MessageSquare className="w-4 h-4 mr-2" />
-              WhatsApp
             </TabsTrigger>
             <TabsTrigger value="security">
               <Shield className="w-4 h-4 mr-2" />
@@ -169,6 +173,81 @@ export default async function SettingsPage() {
                 </div>
 
                 <Button>Actualizar Perfil</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="channels" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Canales de WhatsApp</CardTitle>
+                <CardDescription>
+                  Gestiona las conexiones de WhatsApp de tu organización
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 border rounded-lg bg-blue-50">
+                  <div className="flex items-center space-x-3">
+                    <MessageSquare className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <h3 className="font-medium text-blue-900">Configuración Avanzada</h3>
+                      <p className="text-blue-700 text-sm mt-1">
+                        Administra canales, conexiones QR y API profesional
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center pt-4">
+                  <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                    <a href="/settings/channels">
+                      Ir a Gestión de Canales
+                    </a>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="quick-replies" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Respuestas Rápidas</CardTitle>
+                <CardDescription>
+                  Gestiona plantillas de mensajes para responder más eficientemente
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 border rounded-lg bg-green-50">
+                  <div className="flex items-center space-x-3">
+                    <MessageSquare className="h-8 w-8 text-green-600" />
+                    <div>
+                      <h3 className="font-medium text-green-900">Plantillas de Mensajes</h3>
+                      <p className="text-green-700 text-sm mt-1">
+                        Crea y administra respuestas rápidas con atajos
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Cómo usar respuestas rápidas:</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• Escribe <code className="bg-gray-200 px-1 rounded">/</code> en cualquier conversación</li>
+                      <li>• Selecciona una respuesta de la lista o escribe su atajo</li>
+                      <li>• El mensaje se insertará automáticamente</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center pt-4">
+                  <Button asChild className="bg-green-600 hover:bg-green-700">
+                    <a href="/settings/quick-replies">
+                      Gestionar Respuestas Rápidas
+                    </a>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

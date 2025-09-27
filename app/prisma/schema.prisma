@@ -130,6 +130,10 @@ model Organization {
   conversations        Conversation[]
   messages             Message[]
   
+  // Canales de WhatsApp y Respuestas Rápidas
+  whatsappChannels     WhatsAppChannel[]
+  quickReplies         QuickReply[]
+  
   @@map("organizations")
 }
 
@@ -164,6 +168,10 @@ model User {
   // NextAuth relations
   accounts          Account[]
   sessions          Session[]
+  
+  // Respuestas Rápidas creadas y modificadas
+  createdQuickReplies QuickReply[]
+  modifiedQuickReplies QuickReply[] @relation("QuickReplyModifiedBy")
   
   @@index([organizationId])
   @@index([email])
@@ -676,6 +684,8 @@ model Conversation {
   
   // WhatsApp específico
   whatsappChatId   String?              // ID del chat en WhatsApp
+  whatsappChannelId String?             // Canal de WhatsApp asociado
+  whatsappChannel  WhatsAppChannel?     @relation(fields: [whatsappChannelId], references: [id])
   
   // Control de fechas
   createdAt        DateTime             @default(now())
@@ -722,6 +732,8 @@ model Message {
   // Información específica de WhatsApp
   whatsappId       String?          // ID único del mensaje en WhatsApp
   whatsappStatus   String?          // Estado en WhatsApp (sent, delivered, read)
+  whatsappChannelId String?         // Canal de WhatsApp por el que se envió
+  whatsappChannel  WhatsAppChannel? @relation(fields: [whatsappChannelId], references: [id])
   
   // Usuario que envió el mensaje (si es OUTGOING)
   sentBy           String?          // ID del usuario/agente
@@ -754,7 +766,124 @@ model Message {
   @@index([type])
   @@index([sentAt])
   @@index([isRead])
+  @@index([whatsappChannelId])
   @@map("messages")
+}
+
+// Enums para los canales de WhatsApp
+enum WhatsAppConnectionType {
+  QR_CODE     // Conexión rápida con código QR
+  API_OFFICIAL // Conexión profesional con API oficial de Meta
+}
+
+enum WhatsAppConnectionStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  ERROR
+  EXPIRED
+}
+
+// Tabla WhatsAppChannel - Gestión de canales/conexiones de WhatsApp
+model WhatsAppChannel {
+  id               String                   @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información del canal
+  name             String                   // Nombre del canal (ej: "Soporte Principal")
+  phone            String                   // Número de teléfono del canal
+  connectionType   WhatsAppConnectionType   // Tipo de conexión
+  status           WhatsAppConnectionStatus @default(DISCONNECTED)
+  
+  // Datos específicos para conexión QR
+  qrCode           String?                  // Código QR generado para conexión
+  qrExpiration     DateTime?               // Fecha de expiración del QR
+  
+  // Datos específicos para API oficial
+  accessToken      String?                 // Token de acceso de Meta
+  appId            String?                 // ID de la aplicación de Meta
+  appSecret        String?                 // Secreto de la aplicación
+  webhookVerifyToken String?              // Token para verificar webhook
+  phoneNumberId    String?                 // ID del número de teléfono en la API
+  businessAccountId String?               // ID de la cuenta de negocio
+  
+  // Configuración del canal
+  isActive         Boolean                  @default(true)
+  isDefault        Boolean                  @default(false) // Canal por defecto
+  
+  // Configuración de mensajes automáticos
+  welcomeMessage   String?                 // Mensaje de bienvenida automático
+  autoReplyMessage String?                 // Mensaje de respuesta automática
+  workingHours     Json?                   // Horario de atención {"start": "09:00", "end": "18:00"}
+  
+  // Estadísticas del canal
+  messagesReceived Int                     @default(0)
+  messagesSent     Int                     @default(0)
+  lastActivity     DateTime?               // Última actividad
+  
+  // Timestamps
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  connectedAt      DateTime?               // Fecha de última conexión exitosa
+  
+  // Relaciones
+  conversations    Conversation[]
+  messages         Message[]
+  
+  @@unique([organizationId, phone]) // Número único por organización
+  @@index([organizationId])
+  @@index([status])
+  @@index([connectionType])
+  @@map("whatsapp_channels")
+}
+
+// Tabla QuickReply - Respuestas rápidas/plantillas de mensajes
+model QuickReply {
+  id             String       @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información de la respuesta rápida
+  title          String       // Título/nombre de la plantilla (ej: "Saludo inicial")
+  shortcut       String       // Atajo de teclado (ej: "hola", "gracias")
+  content        String       @db.Text // Contenido del mensaje
+  
+  // Categorización y organización
+  category       String?      // Categoría para organizar (ej: "Saludos", "Precios")
+  tags           String[]     @default([]) // Tags para búsqueda
+  
+  // Personalización
+  variables      Json?        // Variables que se pueden reemplazar {"nombre": "", "empresa": ""}
+  
+  // Configuración
+  isActive       Boolean      @default(true)
+  isGlobal       Boolean      @default(false) // Visible para todos los agentes
+  
+  // Estadísticas de uso
+  usageCount     Int          @default(0)
+  lastUsedAt     DateTime?
+  
+  // Creación y modificación
+  createdBy      String       // ID del usuario que la creó
+  createdByUser  User         @relation(fields: [createdBy], references: [id])
+  modifiedBy     String?      // ID del último usuario que la modificó
+  modifiedByUser User?        @relation("QuickReplyModifiedBy", fields: [modifiedBy], references: [id])
+  
+  // Timestamps
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@unique([organizationId, shortcut]) // Atajo único por organización
+  @@index([organizationId])
+  @@index([shortcut])
+  @@index([category])
+  @@index([isActive])
+  @@map("quick_replies")
 }
 
 // Tablas requeridas para NextAuth.js
