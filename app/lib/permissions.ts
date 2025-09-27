@@ -1,0 +1,194 @@
+
+import { UserRole } from '@prisma/client'
+
+// Definición de permisos granulares del sistema
+export enum Permission {
+  // Gestión de organización
+  MANAGE_ORGANIZATION = 'MANAGE_ORGANIZATION',
+  VIEW_ORGANIZATION_SETTINGS = 'VIEW_ORGANIZATION_SETTINGS',
+  
+  // Gestión de usuarios
+  MANAGE_USERS = 'MANAGE_USERS',
+  INVITE_USERS = 'INVITE_USERS',
+  VIEW_ALL_USERS = 'VIEW_ALL_USERS',
+  
+  // Gestión de conversaciones
+  VIEW_ALL_CONVERSATIONS = 'VIEW_ALL_CONVERSATIONS',
+  VIEW_ASSIGNED_CONVERSATIONS = 'VIEW_ASSIGNED_CONVERSATIONS',
+  MANAGE_CONVERSATIONS = 'MANAGE_CONVERSATIONS',
+  ASSIGN_CONVERSATIONS = 'ASSIGN_CONVERSATIONS',
+  
+  // Configuraciones de WhatsApp
+  MANAGE_WHATSAPP_CONFIG = 'MANAGE_WHATSAPP_CONFIG',
+  VIEW_WHATSAPP_SETTINGS = 'VIEW_WHATSAPP_SETTINGS',
+  
+  // Facturación y suscripciones
+  MANAGE_BILLING = 'MANAGE_BILLING',
+  VIEW_BILLING = 'VIEW_BILLING',
+  
+  // IA y automatización
+  CONFIGURE_AI = 'CONFIGURE_AI',
+  USE_AI_FEATURES = 'USE_AI_FEATURES',
+  VIEW_AI_USAGE = 'VIEW_AI_USAGE',
+  
+  // Reportes y analíticas
+  VIEW_REPORTS = 'VIEW_REPORTS',
+  VIEW_ADVANCED_ANALYTICS = 'VIEW_ADVANCED_ANALYTICS',
+  
+  // Distribuidores
+  MANAGE_CLIENT_ORGANIZATIONS = 'MANAGE_CLIENT_ORGANIZATIONS',
+  VIEW_COMMISSIONS = 'VIEW_COMMISSIONS',
+  CREATE_CLIENT_ACCOUNTS = 'CREATE_CLIENT_ACCOUNTS',
+  
+  // Super Admin
+  PLATFORM_ADMINISTRATION = 'PLATFORM_ADMINISTRATION',
+  VIEW_ALL_ORGANIZATIONS = 'VIEW_ALL_ORGANIZATIONS',
+  MANAGE_SYSTEM_SETTINGS = 'MANAGE_SYSTEM_SETTINGS'
+}
+
+// Matriz de permisos por rol
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  SUPER_ADMIN: [
+    // Super Admin tiene TODOS los permisos
+    ...Object.values(Permission)
+  ],
+  
+  DISTRIBUIDOR: [
+    // Gestión de clientes y comisiones
+    Permission.MANAGE_CLIENT_ORGANIZATIONS,
+    Permission.VIEW_COMMISSIONS,
+    Permission.CREATE_CLIENT_ACCOUNTS,
+    
+    // Vista básica de configuraciones
+    Permission.VIEW_ORGANIZATION_SETTINGS,
+    Permission.VIEW_BILLING,
+    Permission.VIEW_REPORTS,
+    
+    // Uso básico de IA
+    Permission.USE_AI_FEATURES,
+    Permission.VIEW_AI_USAGE,
+    
+    // Conversaciones de sus clientes
+    Permission.VIEW_ALL_CONVERSATIONS,
+    Permission.MANAGE_CONVERSATIONS
+  ],
+  
+  PROPIETARIO: [
+    // Gestión completa de su organización
+    Permission.MANAGE_ORGANIZATION,
+    Permission.VIEW_ORGANIZATION_SETTINGS,
+    
+    // Gestión completa de usuarios
+    Permission.MANAGE_USERS,
+    Permission.INVITE_USERS,
+    Permission.VIEW_ALL_USERS,
+    
+    // Gestión completa de conversaciones
+    Permission.VIEW_ALL_CONVERSATIONS,
+    Permission.MANAGE_CONVERSATIONS,
+    Permission.ASSIGN_CONVERSATIONS,
+    
+    // Configuraciones de WhatsApp
+    Permission.MANAGE_WHATSAPP_CONFIG,
+    Permission.VIEW_WHATSAPP_SETTINGS,
+    
+    // Facturación y suscripciones
+    Permission.MANAGE_BILLING,
+    Permission.VIEW_BILLING,
+    
+    // IA y automatización
+    Permission.CONFIGURE_AI,
+    Permission.USE_AI_FEATURES,
+    Permission.VIEW_AI_USAGE,
+    
+    // Reportes y analíticas
+    Permission.VIEW_REPORTS,
+    Permission.VIEW_ADVANCED_ANALYTICS
+  ],
+  
+  AGENTE: [
+    // Solo conversaciones asignadas
+    Permission.VIEW_ASSIGNED_CONVERSATIONS,
+    
+    // Uso básico de IA
+    Permission.USE_AI_FEATURES,
+    
+    // Vista limitada de configuraciones
+    Permission.VIEW_WHATSAPP_SETTINGS
+  ]
+}
+
+/**
+ * Verificar si un rol tiene un permiso específico
+ */
+export function hasPermission(role: UserRole, permission: Permission): boolean {
+  return ROLE_PERMISSIONS[role].includes(permission)
+}
+
+/**
+ * Verificar si un rol tiene ALGUNO de los permisos especificados
+ */
+export function hasAnyPermission(role: UserRole, permissions: Permission[]): boolean {
+  const rolePermissions = ROLE_PERMISSIONS[role]
+  return permissions.some(permission => rolePermissions.includes(permission))
+}
+
+/**
+ * Verificar si un rol tiene TODOS los permisos especificados
+ */
+export function hasAllPermissions(role: UserRole, permissions: Permission[]): boolean {
+  const rolePermissions = ROLE_PERMISSIONS[role]
+  return permissions.every(permission => rolePermissions.includes(permission))
+}
+
+/**
+ * Obtener todos los permisos de un rol
+ */
+export function getRolePermissions(role: UserRole): Permission[] {
+  return ROLE_PERMISSIONS[role]
+}
+
+/**
+ * Verificar si un rol puede acceder a una ruta específica
+ */
+export function canAccessRoute(role: UserRole, route: string): boolean {
+  const routePermissions: Record<string, Permission[]> = {
+    '/dashboard': [Permission.VIEW_ASSIGNED_CONVERSATIONS, Permission.VIEW_ALL_CONVERSATIONS],
+    '/conversations': [Permission.VIEW_ASSIGNED_CONVERSATIONS, Permission.VIEW_ALL_CONVERSATIONS],
+    '/contacts': [Permission.VIEW_ASSIGNED_CONVERSATIONS, Permission.VIEW_ALL_CONVERSATIONS],
+    '/settings': [Permission.VIEW_ORGANIZATION_SETTINGS],
+    '/settings/organization': [Permission.MANAGE_ORGANIZATION],
+    '/settings/users': [Permission.MANAGE_USERS],
+    '/settings/whatsapp': [Permission.MANAGE_WHATSAPP_CONFIG],
+    '/settings/billing': [Permission.VIEW_BILLING],
+    '/settings/ai': [Permission.CONFIGURE_AI],
+    '/reports': [Permission.VIEW_REPORTS],
+    '/admin': [Permission.PLATFORM_ADMINISTRATION],
+    '/distributor': [Permission.MANAGE_CLIENT_ORGANIZATIONS]
+  }
+
+  const requiredPermissions = routePermissions[route]
+  if (!requiredPermissions) {
+    // Si la ruta no tiene permisos específicos, permitir acceso
+    return true
+  }
+
+  return hasAnyPermission(role, requiredPermissions)
+}
+
+/**
+ * Obtener el dashboard apropiado para un rol
+ */
+export function getDashboardRoute(role: UserRole): string {
+  switch (role) {
+    case 'SUPER_ADMIN':
+      return '/admin'
+    case 'DISTRIBUIDOR':
+      return '/distributor'
+    case 'PROPIETARIO':
+    case 'AGENTE':
+    default:
+      return '/dashboard'
+  }
+}
+
