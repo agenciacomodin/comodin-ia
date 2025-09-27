@@ -1432,3 +1432,500 @@ export interface EcommerceCustomer {
   lastOrderAt?: Date
 }
 
+// =============================================================================
+// SISTEMA DE CAMPAÑAS PROFESIONALES (LA MÁQUINA DE CRECIMIENTO)
+// =============================================================================
+
+import {
+  TemplateStatus,
+  CampaignStatus,
+  CampaignType,
+  AudienceFilterType,
+  AudienceFilterOperator,
+  MessageDeliveryStatus
+} from '@prisma/client'
+
+export {
+  TemplateStatus,
+  CampaignStatus,
+  CampaignType,
+  AudienceFilterType,
+  AudienceFilterOperator,
+  MessageDeliveryStatus
+}
+
+// Tipos para plantillas de mensajes
+export interface MessageTemplateSummary {
+  id: string
+  name: string
+  metaTemplateId?: string
+  metaTemplateName?: string
+  status: TemplateStatus
+  category: string
+  language: string
+  bodyContent: string
+  hasButtons: boolean
+  variables?: any
+  isActive: boolean
+  usageCount: number
+  successfulSends: number
+  failedSends: number
+  lastUsedAt?: Date
+  createdByName: string
+  createdAt: Date
+  approvedAt?: Date
+}
+
+export interface MessageTemplateDetail extends MessageTemplateSummary {
+  organizationId: string
+  statusMessage?: string
+  headerType?: string
+  headerContent?: string
+  footerContent?: string
+  buttonsConfig?: any
+  sampleValues?: any
+  allowedChannels: string[]
+  usageLimit?: number
+  metaQualityScore?: string
+  metaRejectionReason?: string
+  metaLastSyncAt?: Date
+  createdBy: string
+  updatedAt: Date
+}
+
+export interface CreateMessageTemplateRequest {
+  name: string
+  metaTemplateId?: string
+  metaTemplateName?: string
+  category: string
+  language?: string
+  headerType?: string
+  headerContent?: string
+  bodyContent: string
+  footerContent?: string
+  hasButtons?: boolean
+  buttonsConfig?: any
+  variables?: any
+  sampleValues?: any
+  allowedChannels?: string[]
+  usageLimit?: number
+}
+
+export interface UpdateMessageTemplateRequest extends Partial<CreateMessageTemplateRequest> {
+  id: string
+  status?: TemplateStatus
+  statusMessage?: string
+  isActive?: boolean
+}
+
+// Tipos para campañas
+export interface CampaignSummary {
+  id: string
+  name: string
+  description?: string
+  type: CampaignType
+  status: CampaignStatus
+  templateId: string
+  templateName: string
+  targetAudienceSize: number
+  totalRecipients: number
+  messagesSent: number
+  messagesDelivered: number
+  messagesRead: number
+  messagesFailed: number
+  deliveryRate: number
+  readRate: number
+  scheduledFor?: Date
+  startedAt?: Date
+  completedAt?: Date
+  estimatedCost?: number
+  actualCost?: number
+  createdByName: string
+  createdAt: Date
+}
+
+export interface CampaignDetail extends CampaignSummary {
+  organizationId: string
+  template: MessageTemplateSummary
+  messageVariables?: any
+  personalizationRules?: any
+  maxRecipients?: number
+  timezone: string
+  sendRate: number
+  batchSize: number
+  retryAttempts: number
+  messagesQueue: number
+  budgetLimit?: number
+  costPerMessage?: number
+  pausedAt?: Date
+  cancelledAt?: Date
+  lastError?: string
+  errorCount: number
+  createdBy: string
+  updatedAt: Date
+  audienceFilters: CampaignAudienceFilterDetail[]
+  messageDeliveries?: CampaignMessageDeliveryDetail[]
+}
+
+export interface CampaignAudienceFilterDetail {
+  id: string
+  filterType: AudienceFilterType
+  operator: AudienceFilterOperator
+  tagNames: string[]
+  channelIds: string[]
+  vipStatus?: boolean
+  lastContactAfter?: Date
+  lastContactBefore?: Date
+  conversationStatuses: string[]
+  includeInactive: boolean
+  metadata?: any
+  filterOrder: number
+  createdAt: Date
+}
+
+export interface CampaignMessageDeliveryDetail {
+  id: string
+  contactId: string
+  contactName: string
+  contactPhone: string
+  status: MessageDeliveryStatus
+  messageContent: string
+  personalizedVars?: any
+  whatsappChannelId?: string
+  whatsappMessageId?: string
+  queuedAt?: Date
+  sentAt?: Date
+  deliveredAt?: Date
+  readAt?: Date
+  failedAt?: Date
+  errorMessage?: string
+  errorCode?: string
+  retryCount: number
+  nextRetryAt?: Date
+  messageCost?: number
+  metadata?: any
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Tipos para audiencias y segmentación
+export interface AudienceFilter {
+  type: AudienceFilterType
+  operator: AudienceFilterOperator
+  configuration: AudienceFilterConfiguration
+}
+
+export interface AudienceFilterConfiguration {
+  // Para filtros de etiquetas
+  tagNames?: string[]
+  tagOperator?: 'MUST_HAVE' | 'MUST_NOT_HAVE' | 'ANY' | 'ALL'
+  
+  // Para filtros de canal
+  channelIds?: string[]
+  channelTypes?: string[]
+  
+  // Para filtros VIP
+  vipStatus?: boolean | null // true=solo VIP, false=no VIP, null=ambos
+  
+  // Para filtros temporales
+  lastContactAfter?: Date
+  lastContactBefore?: Date
+  relativeDays?: number // Últimos X días
+  
+  // Para filtros de conversación
+  conversationStatuses?: string[]
+  hasUnreadMessages?: boolean
+  hasActiveConversations?: boolean
+  
+  // Configuración general
+  includeInactive?: boolean
+  maxContacts?: number // Límite de cantidad
+}
+
+export interface AudiencePreview {
+  id: string
+  totalContacts: number
+  contactIds: string[]
+  sampleContacts: ContactPreviewSample[]
+  vipCount: number
+  channelsDistribution: Record<string, number>
+  tagsDistribution: Record<string, number>
+  filtersConfig: any
+  processingTime: number
+  expiresAt: Date
+  createdByName: string
+  createdAt: Date
+}
+
+export interface ContactPreviewSample {
+  id: string
+  name: string
+  phone: string
+  isVip: boolean
+  lastContact?: Date
+  tags: string[]
+  channel?: string
+}
+
+// Tipos para creación y actualización de campañas
+export interface CreateCampaignRequest {
+  name: string
+  description?: string
+  type: CampaignType
+  templateId: string
+  messageVariables?: Record<string, any>
+  audienceFilters: AudienceFilter[]
+  maxRecipients?: number
+  scheduledFor?: Date | string
+  timezone?: string
+  sendRate?: number
+  batchSize?: number
+  budgetLimit?: number
+}
+
+export interface UpdateCampaignRequest extends Partial<CreateCampaignRequest> {
+  id: string
+  status?: CampaignStatus
+}
+
+export interface CampaignExecutionRequest {
+  campaignId: string
+  confirmAudience?: boolean
+  dryRun?: boolean // Solo simular sin enviar
+}
+
+export interface CampaignPauseRequest {
+  campaignId: string
+  reason?: string
+}
+
+export interface CampaignCancelRequest {
+  campaignId: string
+  reason: string
+  refundPending?: boolean
+}
+
+// Tipos para estadísticas de campañas
+export interface CampaignsStats {
+  totalCampaigns: number
+  activeCampaigns: number
+  completedCampaigns: number
+  totalMessagesSent: number
+  totalCostThisMonth: number
+  avgDeliveryRate: number
+  avgReadRate: number
+  topPerformingTemplates: Array<{
+    templateId: string
+    templateName: string
+    campaignsCount: number
+    avgDeliveryRate: number
+  }>
+  recentActivity: Array<{
+    id: string
+    type: 'campaign_started' | 'campaign_completed' | 'campaign_failed'
+    campaignName: string
+    timestamp: Date
+    messagesSent?: number
+  }>
+}
+
+export interface CampaignAnalytics {
+  campaignId: string
+  deliveryMetrics: {
+    totalSent: number
+    delivered: number
+    read: number
+    failed: number
+    pending: number
+    deliveryRate: number
+    readRate: number
+  }
+  timelineData: Array<{
+    timestamp: Date
+    messagesSent: number
+    messagesDelivered: number
+    messagesRead: number
+    messagesFailed: number
+  }>
+  errorAnalysis: Array<{
+    errorCode: string
+    errorMessage: string
+    count: number
+    percentage: number
+  }>
+  audienceBreakdown: {
+    byChannel: Record<string, number>
+    byTags: Record<string, number>
+    byVipStatus: { vip: number; regular: number }
+  }
+  costAnalysis: {
+    totalCost: number
+    costPerMessage: number
+    costPerDeliveredMessage: number
+    costPerReadMessage: number
+  }
+}
+
+// Labels y configuraciones para el frontend
+export const TEMPLATE_STATUS_LABELS = {
+  PENDING: 'Pendiente',
+  APPROVED: 'Aprobada',
+  REJECTED: 'Rechazada',
+  PAUSED: 'Pausada',
+  ARCHIVED: 'Archivada'
+} as const
+
+export const TEMPLATE_STATUS_COLORS = {
+  PENDING: 'yellow',
+  APPROVED: 'green',
+  REJECTED: 'red',
+  PAUSED: 'orange',
+  ARCHIVED: 'gray'
+} as const
+
+export const CAMPAIGN_STATUS_LABELS = {
+  DRAFT: 'Borrador',
+  SCHEDULED: 'Programada',
+  SENDING: 'Enviando',
+  COMPLETED: 'Completada',
+  PAUSED: 'Pausada',
+  CANCELLED: 'Cancelada',
+  FAILED: 'Fallida'
+} as const
+
+export const CAMPAIGN_STATUS_COLORS = {
+  DRAFT: 'gray',
+  SCHEDULED: 'blue',
+  SENDING: 'yellow',
+  COMPLETED: 'green',
+  PAUSED: 'orange',
+  CANCELLED: 'red',
+  FAILED: 'red'
+} as const
+
+export const CAMPAIGN_TYPE_LABELS = {
+  IMMEDIATE: 'Inmediato',
+  SCHEDULED: 'Programado',
+  DRIP: 'Secuencial',
+  AB_TEST: 'Prueba A/B'
+} as const
+
+export const AUDIENCE_FILTER_TYPE_LABELS = {
+  INCLUDE_TAG: 'Incluir etiqueta',
+  EXCLUDE_TAG: 'Excluir etiqueta',
+  CHANNEL: 'Canal de origen',
+  VIP_STATUS: 'Estado VIP',
+  LAST_CONTACT: 'Último contacto',
+  CONVERSATION_STATUS: 'Estado de conversación'
+} as const
+
+export const MESSAGE_DELIVERY_STATUS_LABELS = {
+  PENDING: 'Pendiente',
+  QUEUED: 'En cola',
+  SENT: 'Enviado',
+  DELIVERED: 'Entregado',
+  READ: 'Leído',
+  FAILED: 'Fallido',
+  CANCELLED: 'Cancelado'
+} as const
+
+export const MESSAGE_DELIVERY_STATUS_COLORS = {
+  PENDING: 'gray',
+  QUEUED: 'blue',
+  SENT: 'yellow',
+  DELIVERED: 'green',
+  READ: 'green',
+  FAILED: 'red',
+  CANCELLED: 'orange'
+} as const
+
+// Configuraciones por defecto para campañas
+export const DEFAULT_CAMPAIGN_CONFIG = {
+  SEND_RATE: 10, // mensajes por minuto
+  BATCH_SIZE: 100, // tamaño de lote
+  RETRY_ATTEMPTS: 3, // intentos de reenvío
+  PREVIEW_SAMPLE_SIZE: 20, // muestra de contactos en preview
+  PREVIEW_EXPIRATION_HOURS: 24 // horas de expiración del preview
+} as const
+
+// Validaciones
+export const CAMPAIGN_LIMITS = {
+  MIN_SEND_RATE: 1,
+  MAX_SEND_RATE: 60,
+  MIN_BATCH_SIZE: 10,
+  MAX_BATCH_SIZE: 1000,
+  MAX_RECIPIENTS_PER_CAMPAIGN: 50000,
+  MIN_TEMPLATE_NAME_LENGTH: 3,
+  MAX_TEMPLATE_NAME_LENGTH: 100,
+  MIN_CAMPAIGN_NAME_LENGTH: 3,
+  MAX_CAMPAIGN_NAME_LENGTH: 100,
+  MAX_VARIABLES_PER_TEMPLATE: 20
+} as const
+
+// Tipos para el Constructor de Audiencias
+export interface AudienceBuilderState {
+  filters: AudienceFilter[]
+  preview?: AudiencePreview
+  isPreviewLoading: boolean
+  previewError?: string
+  totalContacts: number
+  estimatedReach: number
+}
+
+export interface FilterBuilderProps {
+  filter: AudienceFilter
+  availableTags: string[]
+  availableChannels: Array<{ id: string; name: string }>
+  onChange: (filter: AudienceFilter) => void
+  onRemove: () => void
+  canRemove: boolean
+}
+
+// Tipos para el Asistente de Campañas
+export interface CampaignWizardStep {
+  id: string
+  title: string
+  description: string
+  isCompleted: boolean
+  isActive: boolean
+  component: React.ComponentType<any>
+}
+
+export interface CampaignWizardState {
+  currentStep: number
+  steps: CampaignWizardStep[]
+  campaignData: Partial<CreateCampaignRequest>
+  selectedTemplate?: MessageTemplateDetail
+  audiencePreview?: AudiencePreview
+  validationErrors: Record<string, string[]>
+}
+
+// Tipos para el Motor de Envío
+export interface SendingQueue {
+  campaignId: string
+  totalMessages: number
+  processedMessages: number
+  failedMessages: number
+  pendingMessages: number
+  isProcessing: boolean
+  processingRate: number // mensajes por minuto actual
+  estimatedCompletionTime?: Date
+  lastError?: string
+}
+
+export interface SendingBatch {
+  id: string
+  campaignId: string
+  contacts: Array<{
+    id: string
+    phone: string
+    personalizedMessage: string
+    variables: Record<string, any>
+  }>
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  createdAt: Date
+  processedAt?: Date
+  completedAt?: Date
+  errorMessage?: string
+}
+

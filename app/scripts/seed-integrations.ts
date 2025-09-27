@@ -142,7 +142,18 @@ async function seedIntegrations() {
       // Crear la integración
       await prisma.integration.create({
         data: {
-          ...integration,
+          name: integration.name,
+          displayName: integration.displayName,
+          description: integration.description,
+          type: integration.type as any,
+          platform: integration.platform as any,
+          apiUrl: integration.apiUrl,
+          authType: integration.authType,
+          iconUrl: integration.iconUrl,
+          brandColor: integration.brandColor,
+          documentation: integration.documentation,
+          isActive: integration.isActive,
+          version: integration.version,
           authFields: JSON.stringify(integration.authFields),
           supportedFeatures: JSON.stringify(integration.supportedFeatures)
         }

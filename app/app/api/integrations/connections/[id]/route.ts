@@ -109,12 +109,12 @@ export async function PUT(request: NextRequest, { params }: Context) {
       },
       data: {
         name: name || existingConnection.name,
-        features: features ? JSON.stringify(features) : existingConnection.features,
+        features: features ? JSON.stringify(features) : (existingConnection.features as any),
         config: config ? JSON.stringify({
           ...(typeof existingConnection.config === 'string' ? JSON.parse(existingConnection.config) : existingConnection.config),
           ...config,
           updatedAt: new Date().toISOString()
-        }) : existingConnection.config,
+        }) : (existingConnection.config as any),
         updatedAt: new Date()
       },
       include: {

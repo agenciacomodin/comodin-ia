@@ -37,9 +37,9 @@ export enum Permission {
   VIEW_REPORTS = 'VIEW_REPORTS',
   VIEW_ADVANCED_ANALYTICS = 'VIEW_ADVANCED_ANALYTICS',
   
-  // Gestión de campañas
-  MANAGE_CAMPAIGNS = 'MANAGE_CAMPAIGNS',
-  VIEW_CAMPAIGNS = 'VIEW_CAMPAIGNS',
+  // Gestión básica de campañas (legacy)
+  // MANAGE_CAMPAIGNS = 'MANAGE_CAMPAIGNS', // Movido abajo
+  // VIEW_CAMPAIGNS = 'VIEW_CAMPAIGNS', // Movido abajo
   
   // Gestión de contactos
   VIEW_CONTACTS = 'VIEW_CONTACTS',
@@ -98,7 +98,32 @@ export enum Permission {
   CONNECT_INTEGRATIONS = 'CONNECT_INTEGRATIONS',
   DISCONNECT_INTEGRATIONS = 'DISCONNECT_INTEGRATIONS',
   VIEW_INTEGRATION_LOGS = 'VIEW_INTEGRATION_LOGS',
-  CONFIGURE_INTEGRATION_SETTINGS = 'CONFIGURE_INTEGRATION_SETTINGS'
+  CONFIGURE_INTEGRATION_SETTINGS = 'CONFIGURE_INTEGRATION_SETTINGS',
+  
+  // Sistema de Campañas Profesionales (La Máquina de Crecimiento)
+  VIEW_CAMPAIGNS = 'VIEW_CAMPAIGNS',
+  MANAGE_CAMPAIGNS = 'MANAGE_CAMPAIGNS',
+  CREATE_CAMPAIGNS = 'CREATE_CAMPAIGNS',
+  DELETE_CAMPAIGNS = 'DELETE_CAMPAIGNS',
+  EXECUTE_CAMPAIGNS = 'EXECUTE_CAMPAIGNS',
+  PAUSE_CAMPAIGNS = 'PAUSE_CAMPAIGNS',
+  VIEW_CAMPAIGN_ANALYTICS = 'VIEW_CAMPAIGN_ANALYTICS',
+  
+  // Gestión de Plantillas de Mensajes
+  VIEW_MESSAGE_TEMPLATES = 'VIEW_MESSAGE_TEMPLATES',
+  MANAGE_MESSAGE_TEMPLATES = 'MANAGE_MESSAGE_TEMPLATES',
+  CREATE_MESSAGE_TEMPLATES = 'CREATE_MESSAGE_TEMPLATES',
+  DELETE_MESSAGE_TEMPLATES = 'DELETE_MESSAGE_TEMPLATES',
+  SYNC_META_TEMPLATES = 'SYNC_META_TEMPLATES',
+  
+  // Constructor de Audiencias
+  USE_AUDIENCE_BUILDER = 'USE_AUDIENCE_BUILDER',
+  VIEW_AUDIENCE_PREVIEW = 'VIEW_AUDIENCE_PREVIEW',
+  MANAGE_AUDIENCE_FILTERS = 'MANAGE_AUDIENCE_FILTERS',
+  
+  // Motor de Envío
+  VIEW_SENDING_QUEUE = 'VIEW_SENDING_QUEUE',
+  MANAGE_SENDING_SETTINGS = 'MANAGE_SENDING_SETTINGS'
 }
 
 // Matriz de permisos por rol
@@ -211,7 +236,32 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CONNECT_INTEGRATIONS,
     Permission.DISCONNECT_INTEGRATIONS,
     Permission.VIEW_INTEGRATION_LOGS,
-    Permission.CONFIGURE_INTEGRATION_SETTINGS
+    Permission.CONFIGURE_INTEGRATION_SETTINGS,
+    
+    // Sistema de Campañas Profesionales (La Máquina de Crecimiento)
+    Permission.VIEW_CAMPAIGNS,
+    Permission.MANAGE_CAMPAIGNS,
+    Permission.CREATE_CAMPAIGNS,
+    Permission.DELETE_CAMPAIGNS,
+    Permission.EXECUTE_CAMPAIGNS,
+    Permission.PAUSE_CAMPAIGNS,
+    Permission.VIEW_CAMPAIGN_ANALYTICS,
+    
+    // Gestión de Plantillas de Mensajes
+    Permission.VIEW_MESSAGE_TEMPLATES,
+    Permission.MANAGE_MESSAGE_TEMPLATES,
+    Permission.CREATE_MESSAGE_TEMPLATES,
+    Permission.DELETE_MESSAGE_TEMPLATES,
+    Permission.SYNC_META_TEMPLATES,
+    
+    // Constructor de Audiencias
+    Permission.USE_AUDIENCE_BUILDER,
+    Permission.VIEW_AUDIENCE_PREVIEW,
+    Permission.MANAGE_AUDIENCE_FILTERS,
+    
+    // Motor de Envío
+    Permission.VIEW_SENDING_QUEUE,
+    Permission.MANAGE_SENDING_SETTINGS
   ],
   
   AGENTE: [
@@ -242,7 +292,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     
     // Respuestas rápidas - solo usar
     Permission.USE_QUICK_REPLIES,
-    Permission.VIEW_QUICK_REPLIES
+    Permission.VIEW_QUICK_REPLIES,
+    
+    // Campañas - solo visualización básica
+    Permission.VIEW_CAMPAIGNS,
+    Permission.VIEW_MESSAGE_TEMPLATES
   ]
 }
 
@@ -295,7 +349,15 @@ export function canAccessRoute(role: UserRole, route: string): boolean {
     '/admin': [Permission.PLATFORM_ADMINISTRATION],
     '/admin/ai-providers': [Permission.MANAGE_AI_PROVIDERS],
     '/admin/ai-broker': [Permission.PLATFORM_ADMINISTRATION],
-    '/distributor': [Permission.MANAGE_CLIENT_ORGANIZATIONS]
+    '/distributor': [Permission.MANAGE_CLIENT_ORGANIZATIONS],
+    
+    // Rutas de campañas
+    '/campaigns': [Permission.VIEW_CAMPAIGNS],
+    '/campaigns/create': [Permission.CREATE_CAMPAIGNS],
+    '/campaigns/templates': [Permission.VIEW_MESSAGE_TEMPLATES],
+    '/campaigns/templates/create': [Permission.CREATE_MESSAGE_TEMPLATES],
+    '/campaigns/analytics': [Permission.VIEW_CAMPAIGN_ANALYTICS],
+    '/campaigns/audience-builder': [Permission.USE_AUDIENCE_BUILDER]
   }
 
   const requiredPermissions = routePermissions[route]

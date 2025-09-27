@@ -148,6 +148,11 @@ model Organization {
   // Sistema de Integraciones
   integrations         OrganizationIntegration[]
   
+  // Sistema de Campañas (La Máquina de Crecimiento)
+  messageTemplates     MessageTemplate[]
+  campaigns            Campaign[]
+  campaignPreviews     CampaignAudiencePreview[]
+  
   @@map("organizations")
 }
 
@@ -1590,6 +1595,349 @@ model IntegrationLog {
   @@index([eventType])
   @@index([createdAt])
   @@map("integration_logs")
+}
+
+// =============================================================================
+// SISTEMA DE CAMPAÑAS PROFESIONALES (LA MÁQUINA DE CRECIMIENTO)
+// =============================================================================
+
+// Enums para el sistema de campañas
+enum TemplateStatus {
+  PENDING       // Pendiente de aprobación por Meta
+  APPROVED      // Aprobada por Meta y lista para usar
+  REJECTED      // Rechazada por Meta
+  PAUSED        // Pausada temporalmente
+  ARCHIVED      // Archivada
+}
+
+enum CampaignStatus {
+  DRAFT         // Borrador en creación
+  SCHEDULED     // Programada para envío
+  SENDING       // Enviándose actualmente
+  COMPLETED     // Completada exitosamente
+  PAUSED        // Pausada manualmente
+  CANCELLED     // Cancelada antes de completar
+  FAILED        // Falló durante el envío
+}
+
+enum CampaignType {
+  IMMEDIATE     // Envío inmediato
+  SCHEDULED     // Envío programado
+  DRIP          // Campaña goteada (secuencial)
+  AB_TEST       // Prueba A/B
+}
+
+enum AudienceFilterType {
+  INCLUDE_TAG   // DEBE TENER esta etiqueta
+  EXCLUDE_TAG   // NO DEBE TENER esta etiqueta
+  CHANNEL       // Filtrar por canal de origen
+  VIP_STATUS    // Filtrar por estatus VIP
+  LAST_CONTACT  // Filtrar por última fecha de contacto
+  CONVERSATION_STATUS // Filtrar por estado de conversación
+}
+
+enum AudienceFilterOperator {
+  AND           // Y lógico
+  OR            // O lógico
+}
+
+enum MessageDeliveryStatus {
+  PENDING       // Pendiente de envío
+  QUEUED        // En cola de envío
+  SENT          // Enviado exitosamente
+  DELIVERED     // Entregado al destinatario
+  READ          // Leído por el destinatario
+  FAILED        // Falló el envío
+  CANCELLED     // Cancelado antes del envío
+}
+
+// Tabla MessageTemplate - Plantillas de mensajes pre-aprobadas por Meta
+model MessageTemplate {
+  id                String         @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica de la plantilla
+  name              String         // Nombre descriptivo interno
+  metaTemplateId    String?        // ID de la plantilla en Meta Business
+  metaTemplateName  String?        // Nombre registrado en Meta
+  
+  // Estado de aprobación
+  status            TemplateStatus @default(PENDING)
+  statusMessage     String?        // Mensaje de estado de Meta
+  
+  // Contenido de la plantilla
+  category          String         // Categoría en Meta (MARKETING, UTILITY, etc.)
+  language          String         @default("es") // Idioma de la plantilla
+  headerType        String?        // NONE, TEXT, IMAGE, VIDEO, DOCUMENT
+  headerContent     String?        // Contenido del header
+  bodyContent       String         @db.Text // Contenido principal (con variables {{1}}, {{2}})
+  footerContent     String?        // Contenido del footer opcional
+  
+  // Botones y componentes interactivos
+  hasButtons        Boolean        @default(false)
+  buttonsConfig     Json?          // Configuración de botones
+  
+  // Variables y personalización
+  variables         Json?          // Definición de variables y sus tipos
+  sampleValues      Json?          // Valores de ejemplo para las variables
+  
+  // Configuración y restricciones
+  isActive          Boolean        @default(true)
+  allowedChannels   String[]       @default([]) // Canales donde se puede usar
+  usageLimit        Int?           // Límite de uso (si aplica)
+  
+  // Metadatos de Meta Business
+  metaQualityScore  String?        // Puntaje de calidad en Meta
+  metaRejectionReason String?      // Razón de rechazo si aplica
+  metaLastSyncAt    DateTime?      // Última sincronización con Meta
+  
+  // Estadísticas de uso
+  usageCount        Int            @default(0)
+  successfulSends   Int            @default(0)
+  failedSends       Int            @default(0)
+  lastUsedAt        DateTime?
+  
+  // Control de fechas
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  approvedAt        DateTime?      // Fecha de aprobación por Meta
+  
+  // Usuario que creó la plantilla
+  createdBy         String         // ID del usuario
+  createdByName     String         // Nombre del usuario
+  
+  // Relaciones
+  campaigns         Campaign[]     // Campañas que usan esta plantilla
+  
+  @@unique([organizationId, metaTemplateId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([category])
+  @@index([isActive])
+  @@map("message_templates")
+}
+
+// Tabla Campaign - Campañas de marketing y comunicación
+model Campaign {
+  id                String         @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica de la campaña
+  name              String         // Nombre de la campaña
+  description       String?        // Descripción detallada
+  type              CampaignType   @default(IMMEDIATE)
+  status            CampaignStatus @default(DRAFT)
+  
+  // Plantilla utilizada
+  templateId        String
+  template          MessageTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  // Configuración de mensaje personalizada
+  messageVariables  Json?          // Valores de las variables de la plantilla
+  personalizationRules Json?       // Reglas de personalización avanzada
+  
+  // Configuración de audiencia
+  targetAudienceSize Int           @default(0) // Tamaño estimado de la audiencia
+  maxRecipients     Int?           // Límite máximo de destinatarios
+  
+  // Programación de envío
+  scheduledFor      DateTime?      // Fecha y hora programada
+  timezone          String         @default("America/Mexico_City")
+  
+  // Configuración de envío
+  sendRate          Int            @default(10) // Mensajes por minuto
+  batchSize         Int            @default(100) // Tamaño de lote
+  retryAttempts     Int            @default(3) // Intentos de reenvío
+  
+  // Estadísticas de la campaña
+  totalRecipients   Int            @default(0) // Total de destinatarios finales
+  messagesSent      Int            @default(0) // Mensajes enviados exitosamente
+  messagesDelivered Int            @default(0) // Mensajes entregados
+  messagesRead      Int            @default(0) // Mensajes leídos
+  messagesFailed    Int            @default(0) // Mensajes fallidos
+  messagesQueue     Int            @default(0) // Mensajes en cola
+  
+  // Costos y presupuesto
+  estimatedCost     Decimal?       @db.Decimal(10, 2) // Costo estimado
+  actualCost        Decimal?       @db.Decimal(10, 2) // Costo real
+  budgetLimit       Decimal?       @db.Decimal(10, 2) // Límite de presupuesto
+  costPerMessage    Decimal?       @db.Decimal(6, 4) // Costo por mensaje
+  
+  // Control de progreso
+  startedAt         DateTime?      // Fecha de inicio real
+  completedAt       DateTime?      // Fecha de finalización
+  pausedAt          DateTime?      // Fecha de pausa
+  cancelledAt       DateTime?      // Fecha de cancelación
+  
+  // Información de error
+  lastError         String?        @db.Text // Último error encontrado
+  errorCount        Int            @default(0) // Número de errores
+  
+  // Control de fechas
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  // Usuario que creó la campaña
+  createdBy         String         // ID del usuario
+  createdByName     String         // Nombre del usuario
+  
+  // Relaciones
+  audienceFilters   CampaignAudienceFilter[] // Filtros de audiencia
+  messageDeliveries CampaignMessageDelivery[] // Estado de entrega de mensajes
+  audiencePreviews  CampaignAudiencePreview[] // Vista previa de audiencias
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([scheduledFor])
+  @@index([createdAt])
+  @@map("campaigns")
+}
+
+// Tabla CampaignAudienceFilter - Filtros para segmentación de audiencias
+model CampaignAudienceFilter {
+  id                String                @id @default(cuid())
+  
+  // Relación con la campaña
+  campaignId        String
+  campaign          Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Configuración del filtro
+  filterType        AudienceFilterType    // Tipo de filtro
+  operator          AudienceFilterOperator @default(AND) // Operador lógico
+  
+  // Datos específicos según el tipo de filtro
+  tagNames          String[]              @default([]) // Para filtros de etiquetas
+  channelIds        String[]              @default([]) // Para filtros de canal
+  vipStatus         Boolean?              // Para filtro VIP (true=solo VIP, false=no VIP, null=ambos)
+  
+  // Filtros temporales
+  lastContactAfter  DateTime?             // Último contacto después de...
+  lastContactBefore DateTime?             // Último contacto antes de...
+  
+  // Filtros de conversación
+  conversationStatuses String[]           @default([]) // Estados de conversación
+  
+  // Metadatos adicionales
+  includeInactive   Boolean               @default(false) // Incluir contactos inactivos
+  metadata          Json?                 // Configuración adicional específica
+  
+  // Control de orden
+  filterOrder       Int                   @default(1) // Orden de aplicación del filtro
+  
+  // Control de fechas
+  createdAt         DateTime              @default(now())
+  
+  @@index([campaignId])
+  @@index([filterType])
+  @@map("campaign_audience_filters")
+}
+
+// Tabla CampaignMessageDelivery - Estado de entrega individual de mensajes
+model CampaignMessageDelivery {
+  id                String              @id @default(cuid())
+  
+  // Relación con la campaña
+  campaignId        String
+  campaign          Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Destinatario
+  contactId         String              // ID del contacto destinatario
+  contactName       String              // Nombre del contacto para logging
+  contactPhone      String              // Teléfono del contacto
+  
+  // Estado de la entrega
+  status            MessageDeliveryStatus @default(PENDING)
+  
+  // Contenido enviado
+  messageContent    String              @db.Text // Contenido final personalizado
+  personalizedVars  Json?               // Variables personalizadas usadas
+  
+  // Información de envío
+  whatsappChannelId String?             // Canal de WhatsApp usado
+  whatsappMessageId String?             // ID del mensaje en WhatsApp
+  
+  // Timestamps de estados
+  queuedAt          DateTime?           // Fecha de cola
+  sentAt            DateTime?           // Fecha de envío
+  deliveredAt       DateTime?           // Fecha de entrega
+  readAt            DateTime?           // Fecha de lectura
+  failedAt          DateTime?           // Fecha de fallo
+  
+  // Información de error
+  errorMessage      String?             @db.Text // Mensaje de error
+  errorCode         String?             // Código de error específico
+  retryCount        Int                 @default(0) // Número de reintentos
+  nextRetryAt       DateTime?           // Próximo intento programado
+  
+  // Costos
+  messageCost       Decimal?            @db.Decimal(6, 4) // Costo de este mensaje específico
+  
+  // Metadatos
+  metadata          Json?               // Información adicional
+  
+  // Control de fechas
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@unique([campaignId, contactId]) // Un mensaje por contacto por campaña
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+  @@index([sentAt])
+  @@map("campaign_message_deliveries")
+}
+
+// Tabla CampaignAudiencePreview - Vista previa de audiencias antes de envío
+model CampaignAudiencePreview {
+  id                String              @id @default(cuid())
+  
+  // Relación con la campaña (opcional, puede ser para preview sin campaña)
+  campaignId        String?
+  campaign          Campaign?           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Configuración de filtros (copia para histórico)
+  filtersConfig     Json                // Configuración completa de filtros
+  
+  // Resultados de la preview
+  totalContacts     Int                 @default(0) // Total de contactos encontrados
+  contactIds        Json                // Array con IDs de contactos seleccionados
+  sampleContacts    Json                // Muestra de contactos para preview
+  
+  // Estadísticas de la audiencia
+  vipCount          Int                 @default(0) // Contactos VIP incluidos
+  channelsDistribution Json            // Distribución por canal
+  tagsDistribution  Json               // Distribución por etiquetas
+  
+  // Metadatos de procesamiento
+  processingTime    Int                 @default(0) // Tiempo de procesamiento en ms
+  lastProcessedAt   DateTime?          // Última vez que se procesó
+  
+  // Control de expiración (preview temporal)
+  expiresAt         DateTime            // Fecha de expiración del preview
+  
+  // Usuario que generó el preview
+  createdBy         String             // ID del usuario
+  createdByName     String             // Nombre del usuario
+  
+  // Control de fechas
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([expiresAt])
+  @@map("campaign_audience_previews")
 }
 
 // Tablas requeridas para NextAuth.js
