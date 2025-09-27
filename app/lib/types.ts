@@ -9,7 +9,10 @@ import {
   MessageType,
   MessageDirection,
   WhatsAppConnectionType,
-  WhatsAppConnectionStatus
+  WhatsAppConnectionStatus,
+  KnowledgeSourceType,
+  KnowledgeSourceStatus,
+  ChunkProcessingStatus
 } from '@prisma/client'
 
 export type Expense = {
@@ -945,5 +948,286 @@ export interface ActionBuilderItem {
   executionOrder: number
   configuration: any
   isValid: boolean
+}
+
+// =====================================
+// BASE DE CONOCIMIENTO (KNOWLEDGE BASE)
+// =====================================
+
+export {
+  KnowledgeSourceType,
+  KnowledgeSourceStatus,
+  ChunkProcessingStatus
+}
+
+// Tipos para la base de conocimiento
+export interface KnowledgeSourceSummary {
+  id: string
+  name: string
+  type: KnowledgeSourceType
+  status: KnowledgeSourceStatus
+  originalFileName?: string
+  sourceUrl?: string
+  fileSize?: number
+  fileMimeType?: string
+  totalChunks: number
+  processedChunks: number
+  failedChunks: number
+  contentQuality?: number
+  usageCount: number
+  lastUsedAt?: Date
+  tags: string[]
+  createdByName: string
+  createdAt: Date
+  processedAt?: Date
+  lastError?: string
+  processingProgress: number
+}
+
+export interface KnowledgeSourceDetail extends KnowledgeSourceSummary {
+  organizationId: string
+  textContent?: string
+  chunkSize: number
+  chunkOverlap: number
+  metadata?: any
+  retryCount: number
+  maxRetries: number
+  createdBy: string
+  updatedAt: Date
+  chunks?: KnowledgeChunkSummary[]
+}
+
+export interface KnowledgeChunkSummary {
+  id: string
+  sourceId: string
+  content: string
+  chunkIndex: number
+  status: ChunkProcessingStatus
+  wordCount: number
+  characterCount: number
+  language?: string
+  title?: string
+  section?: string
+  pageNumber?: number
+  contentQuality?: number
+  usageCount: number
+  lastUsedAt?: Date
+  createdAt: Date
+  processedAt?: Date
+  processingError?: string
+}
+
+export interface KnowledgeEmbeddingSummary {
+  id: string
+  chunkId: string
+  modelUsed: string
+  embeddingVersion: string
+  dimensions: number
+  quality?: number
+  confidence?: number
+  searchCount: number
+  avgSimilarity?: number
+  lastSearchAt?: Date
+  processingTime: number
+  providerUsed: string
+  costIncurred?: number
+  createdAt: Date
+}
+
+export interface KnowledgeUsageSummary {
+  id: string
+  organizationId: string
+  userId?: string
+  userName?: string
+  conversationId?: string
+  query: string
+  queryType: string
+  resultsFound: number
+  resultsUsed: number
+  avgSimilarity?: number
+  satisfactionScore?: number
+  responseGenerated: boolean
+  responseQuality?: number
+  processingTime: number
+  createdAt: Date
+}
+
+// Tipos para acciones de la base de conocimiento
+export interface CreateKnowledgeSourceRequest {
+  name: string
+  type: KnowledgeSourceType
+  // Para archivos
+  file?: File
+  // Para URLs
+  sourceUrl?: string
+  crawlDepth?: number
+  // Para texto manual
+  textContent?: string
+  // Configuración
+  chunkSize?: number
+  chunkOverlap?: number
+  tags?: string[]
+  metadata?: any
+}
+
+export interface UpdateKnowledgeSourceRequest {
+  id: string
+  name?: string
+  status?: KnowledgeSourceStatus
+  tags?: string[]
+  metadata?: any
+  chunkSize?: number
+  chunkOverlap?: number
+}
+
+export interface ProcessKnowledgeSourceRequest {
+  sourceId: string
+  forceReprocess?: boolean
+  chunkSize?: number
+  chunkOverlap?: number
+}
+
+export interface SearchKnowledgeRequest {
+  query: string
+  organizationId: string
+  maxResults?: number
+  minSimilarity?: number
+  sourceTypes?: KnowledgeSourceType[]
+  sourceTags?: string[]
+  includeDisabled?: boolean
+  conversationId?: string
+  userId?: string
+}
+
+export interface SearchKnowledgeResult {
+  chunks: Array<{
+    id: string
+    sourceId: string
+    sourceName: string
+    content: string
+    similarity: number
+    title?: string
+    section?: string
+    pageNumber?: number
+    metadata?: any
+  }>
+  totalResults: number
+  avgSimilarity: number
+  processingTime: number
+  sourcesConsulted: string[]
+}
+
+export interface KnowledgeStats {
+  totalSources: number
+  activeSources: number
+  processingSources: number
+  errorSources: number
+  totalChunks: number
+  processedChunks: number
+  failedChunks: number
+  totalUsage: number
+  usageThisMonth: number
+  avgQuality: number
+  topSources: Array<{
+    id: string
+    name: string
+    usageCount: number
+    quality?: number
+  }>
+  recentActivity: Array<{
+    id: string
+    action: string
+    sourceName: string
+    timestamp: Date
+    status: string
+  }>
+}
+
+// Filtros para la base de conocimiento
+export interface KnowledgeFilters {
+  status?: KnowledgeSourceStatus[]
+  type?: KnowledgeSourceType[]
+  tags?: string[]
+  quality?: {
+    min?: number
+    max?: number
+  }
+  usage?: {
+    min?: number
+    max?: number
+  }
+  dateRange?: {
+    from: Date
+    to: Date
+  }
+  searchTerm?: string
+}
+
+// Configuración de archivos permitidos para conocimiento
+export const KNOWLEDGE_FILE_TYPES = {
+  pdf: ['application/pdf'],
+  document: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  text: ['text/plain', 'text/markdown', 'text/csv'],
+  web: ['text/html']
+} as const
+
+export const MAX_KNOWLEDGE_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+
+// Labels para el frontend
+export const KNOWLEDGE_SOURCE_TYPE_LABELS = {
+  FILE: 'Archivo',
+  URL: 'Página Web',
+  TEXT: 'Texto Manual'
+} as const
+
+export const KNOWLEDGE_SOURCE_STATUS_LABELS = {
+  UPLOADING: 'Subiendo',
+  PROCESSING: 'Procesando',
+  CHUNKING: 'Fragmentando',
+  EMBEDDING: 'Generando Embeddings',
+  ACTIVE: 'Activo',
+  ERROR: 'Error',
+  DISABLED: 'Deshabilitado'
+} as const
+
+export const KNOWLEDGE_SOURCE_STATUS_COLORS = {
+  UPLOADING: 'blue',
+  PROCESSING: 'yellow',
+  CHUNKING: 'orange',
+  EMBEDDING: 'purple',
+  ACTIVE: 'green',
+  ERROR: 'red',
+  DISABLED: 'gray'
+} as const
+
+export const CHUNK_PROCESSING_STATUS_LABELS = {
+  PENDING: 'Pendiente',
+  PROCESSING: 'Procesando',
+  COMPLETED: 'Completado',
+  FAILED: 'Fallido'
+} as const
+
+// Configuración de procesamiento por defecto
+export const DEFAULT_CHUNK_SIZE = 1000
+export const DEFAULT_CHUNK_OVERLAP = 100
+export const DEFAULT_MAX_CHUNKS_PER_SOURCE = 1000
+export const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
+export const DEFAULT_EMBEDDING_DIMENSIONS = 1536
+
+// Tipos para el procesamiento de contenido
+export interface ContentProcessor {
+  extractText(file: File): Promise<string>
+  extractMetadata(file: File): Promise<any>
+  splitIntoChunks(content: string, chunkSize: number, overlap: number): string[]
+  detectLanguage(content: string): string
+  calculateQuality(content: string): number
+}
+
+export interface EmbeddingProvider {
+  generateEmbedding(text: string): Promise<number[]>
+  calculateSimilarity(embedding1: number[], embedding2: number[]): number
+  getDimensions(): number
+  getModelName(): string
+  getCost(tokenCount: number): number
 }
 

@@ -138,6 +138,10 @@ model Organization {
   automationRules      AutomationRule[]
   aiAnalysisCache      AIAnalysisCache[]
   
+  // Base de Conocimiento
+  knowledgeSources     KnowledgeSource[]
+  knowledgeUsage       KnowledgeUsage[]
+  
   @@map("organizations")
 }
 
@@ -1140,6 +1144,246 @@ model AIAnalysisCache {
   @@index([lastUsedAt])
   @@index([expiresAt])
   @@map("ai_analysis_cache")
+}
+
+// ===========================================
+// BASE DE CONOCIMIENTO (KNOWLEDGE BASE)
+// ===========================================
+
+// Enums para el sistema de base de conocimiento
+enum KnowledgeSourceType {
+  FILE          // Archivo subido (PDF, DOC, TXT)
+  URL           // Página web o URL
+  TEXT          // Texto ingresado manualmente
+}
+
+enum KnowledgeSourceStatus {
+  UPLOADING     // Subiendo archivo
+  PROCESSING    // Procesando contenido
+  CHUNKING      // Dividiendo en fragmentos
+  EMBEDDING     // Generando embeddings
+  ACTIVE        // Activo y listo para usar
+  ERROR         // Error en el procesamiento
+  DISABLED      // Deshabilitado temporalmente
+}
+
+enum ChunkProcessingStatus {
+  PENDING       // Pendiente de procesar
+  PROCESSING    // Procesando embedding
+  COMPLETED     // Completado exitosamente
+  FAILED        // Falló el procesamiento
+}
+
+// Tabla KnowledgeSource - Fuentes de conocimiento de la organización
+model KnowledgeSource {
+  id               String                @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica de la fuente
+  name             String                // Nombre descriptivo
+  type             KnowledgeSourceType   // Tipo de fuente
+  status           KnowledgeSourceStatus @default(UPLOADING)
+  
+  // Datos específicos según el tipo
+  originalFileName String?               // Para archivos: nombre original
+  fileUrl          String?               // Para archivos: URL en cloud storage
+  fileMimeType     String?               // Para archivos: tipo MIME
+  fileSize         Int?                  // Para archivos: tamaño en bytes
+  
+  sourceUrl        String?               // Para URLs: URL original
+  crawlDepth       Int?                  @default(1) // Para URLs: profundidad de crawling
+  
+  textContent      String?               @db.Text // Para texto manual o contenido extraído
+  
+  // Metadatos de procesamiento
+  totalChunks      Int                   @default(0) // Total de chunks generados
+  processedChunks  Int                   @default(0) // Chunks procesados exitosamente
+  failedChunks     Int                   @default(0) // Chunks que fallaron
+  
+  // Configuración de procesamiento
+  chunkSize        Int                   @default(1000) // Tamaño de cada chunk en caracteres
+  chunkOverlap     Int                   @default(100)  // Overlap entre chunks
+  
+  // Información de calidad y relevancia
+  contentQuality   Decimal?              @db.Decimal(3, 2) // Score de calidad 0-1
+  lastUsedAt       DateTime?             // Última vez que se usó en una respuesta
+  usageCount       Int                   @default(0) // Veces que se ha usado
+  
+  // Metadatos adicionales
+  metadata         Json?                 // Metadatos adicionales (idioma, categoría, etc.)
+  tags             String[]              @default([]) // Tags para organizar
+  
+  // Información de error
+  lastError        String?               @db.Text // Último error encontrado
+  retryCount       Int                   @default(0) // Número de reintentos
+  maxRetries       Int                   @default(3) // Máximo número de reintentos
+  
+  // Usuario que creó la fuente
+  createdBy        String                // ID del usuario
+  createdByName    String                // Nombre del usuario para mostrar
+  
+  // Control de fechas
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  processedAt      DateTime?             // Fecha de último procesamiento
+  
+  // Relaciones
+  chunks           KnowledgeChunk[]      // Chunks de contenido
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([lastUsedAt])
+  @@map("knowledge_sources")
+}
+
+// Tabla KnowledgeChunk - Fragmentos de contenido procesados
+model KnowledgeChunk {
+  id               String                @id @default(cuid())
+  
+  // Relación con la fuente de conocimiento
+  sourceId         String
+  source           KnowledgeSource       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  
+  // Información del chunk
+  content          String                @db.Text // Contenido del fragmento
+  chunkIndex       Int                   // Índice del chunk dentro de la fuente
+  startPosition    Int?                  // Posición de inicio en el documento original
+  endPosition      Int?                  // Posición final en el documento original
+  
+  // Estado del procesamiento
+  status           ChunkProcessingStatus @default(PENDING)
+  processingError  String?               @db.Text // Error de procesamiento si aplica
+  
+  // Metadatos del contenido
+  wordCount        Int                   @default(0) // Número de palabras
+  characterCount   Int                   @default(0) // Número de caracteres
+  language         String?               @default("es") // Idioma detectado
+  
+  // Información de contexto
+  title            String?               // Título del fragmento (si se puede extraer)
+  section          String?               // Sección del documento
+  pageNumber       Int?                  // Página (para documentos)
+  
+  // Calidad y relevancia
+  contentQuality   Decimal?              @db.Decimal(3, 2) // Score de calidad del contenido
+  keywordDensity   Json?                 // Densidad de palabras clave importantes
+  
+  // Estadísticas de uso
+  usageCount       Int                   @default(0) // Veces que se ha usado en respuestas
+  lastUsedAt       DateTime?             // Última vez usado
+  relevanceScore   Decimal?              @db.Decimal(5, 4) // Score de relevancia promedio
+  
+  // Control de fechas
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  processedAt      DateTime?             // Fecha de procesamiento del embedding
+  
+  // Relaciones
+  embeddings       KnowledgeEmbedding[]  // Embeddings vectoriales
+  
+  @@unique([sourceId, chunkIndex]) // Índice único por fuente
+  @@index([sourceId])
+  @@index([status])
+  @@index([contentQuality])
+  @@index([usageCount])
+  @@index([lastUsedAt])
+  @@map("knowledge_chunks")
+}
+
+// Tabla KnowledgeEmbedding - Embeddings vectoriales para búsqueda semántica
+model KnowledgeEmbedding {
+  id               String              @id @default(cuid())
+  
+  // Relación con el chunk
+  chunkId          String
+  chunk            KnowledgeChunk      @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  
+  // Información del embedding
+  modelUsed        String              // Modelo usado para generar el embedding
+  embeddingVersion String              @default("1.0") // Versión del embedding
+  dimensions       Int                 // Dimensiones del vector
+  
+  // Vector embedding (almacenado como JSON por compatibilidad)
+  embedding        Json                // Vector de embeddings
+  
+  // Metadatos del procesamiento
+  processingTime   Int                 @default(0) // Tiempo de procesamiento en ms
+  providerUsed     String              // Proveedor de IA usado
+  costIncurred     Decimal?            @db.Decimal(10, 6) // Costo incurrido
+  
+  // Control de calidad
+  quality          Decimal?            @db.Decimal(3, 2) // Calidad del embedding
+  confidence       Decimal?            @db.Decimal(5, 4) // Confianza del modelo
+  
+  // Estadísticas de búsqueda
+  searchCount      Int                 @default(0) // Veces encontrado en búsquedas
+  avgSimilarity    Decimal?            @db.Decimal(5, 4) // Similaridad promedio en búsquedas
+  lastSearchAt     DateTime?           // Última búsqueda
+  
+  // Control de fechas
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  @@unique([chunkId, modelUsed]) // Un embedding por chunk por modelo
+  @@index([chunkId])
+  @@index([modelUsed])
+  @@index([dimensions])
+  @@index([quality])
+  @@map("knowledge_embeddings")
+}
+
+// Tabla KnowledgeUsage - Registro de uso de la base de conocimiento
+model KnowledgeUsage {
+  id               String              @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Contexto del uso
+  userId           String?             // Usuario que realizó la consulta
+  userName         String?             // Nombre del usuario
+  sessionId        String?             // ID de sesión si aplica
+  conversationId   String?             // ID de conversación si aplica
+  
+  // Información de la consulta
+  query            String              @db.Text // Consulta realizada
+  queryType        String              @default("similarity") // Tipo de búsqueda
+  resultsFound     Int                 @default(0) // Número de resultados encontrados
+  resultsUsed      Int                 @default(0) // Número de resultados usados
+  
+  // Fuentes consultadas
+  sourcesConsulted Json                // IDs de fuentes consultadas
+  chunksRetrieved  Json                // IDs de chunks recuperados
+  
+  // Métricas de calidad
+  avgSimilarity    Decimal?            @db.Decimal(5, 4) // Similaridad promedio
+  queryComplexity  Int?                // Complejidad de la consulta 1-10
+  satisfactionScore Decimal?           @db.Decimal(3, 2) // Score de satisfacción
+  
+  // Información de respuesta generada
+  responseGenerated Boolean             @default(false) // Si se generó una respuesta
+  responseLength   Int?                // Longitud de la respuesta
+  responseQuality  Decimal?            @db.Decimal(3, 2) // Calidad de la respuesta
+  
+  // Metadatos adicionales
+  metadata         Json?               // Información adicional
+  processingTime   Int                 @default(0) // Tiempo total de procesamiento
+  
+  // Control de fechas
+  createdAt        DateTime            @default(now())
+  
+  @@index([organizationId])
+  @@index([userId])
+  @@index([conversationId])
+  @@index([queryType])
+  @@index([createdAt])
+  @@map("knowledge_usage")
 }
 
 // Tablas requeridas para NextAuth.js
