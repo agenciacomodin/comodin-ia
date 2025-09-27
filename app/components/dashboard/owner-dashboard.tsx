@@ -14,6 +14,8 @@ import { HierarchyGuard } from '@/components/hierarchy/hierarchy-guard'
 import { RoleBadge } from '@/components/hierarchy/role-badge'
 import { Permission } from '@/lib/permissions'
 import { TeamHierarchyView } from '@/components/team/team-hierarchy-view'
+import { InviteUserModal } from '@/components/invitations/InviteUserModal'
+import { InvitationsList } from '@/components/invitations/InvitationsList'
 import { 
   MessageCircle, 
   Users, 
@@ -36,6 +38,7 @@ interface OwnerDashboardProps {
 
 export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview')
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
 
   // Mock data para team members - en producción esto vendría de la API
   const mockTeamMembers = [
@@ -101,7 +104,7 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                 <Settings className="h-4 w-4 mr-2" />
                 Configurar
               </Button>
-              <Button size="sm">
+              <Button size="sm" onClick={() => setInviteModalOpen(true)}>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Invitar Agente
               </Button>
@@ -200,7 +203,11 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                 </ConditionalRender>
                 
                 <ConditionalRender permissions={[Permission.INVITE_USERS]}>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-200">
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-200"
+                    onClick={() => setInviteModalOpen(true)}
+                  >
                     <UserPlus className="h-6 w-6 text-blue-600" />
                     <span className="text-sm">Invitar Agente</span>
                   </Button>
@@ -296,12 +303,16 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
         </TabsContent>
 
         {/* Team Tab con jerarquía mejorada */}
-        <TabsContent value="team">
+        <TabsContent value="team" className="space-y-6">
           <TeamHierarchyView
             organization={organization}
             members={mockTeamMembers}
             currentUserRole={user.role}
           />
+          
+          <ConditionalRender permissions={[Permission.INVITE_USERS]}>
+            <InvitationsList onInvite={() => setInviteModalOpen(true)} />
+          </ConditionalRender>
         </TabsContent>
 
         {/* Otros tabs para desarrollo futuro */}
@@ -365,6 +376,12 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal de invitación */}
+      <InviteUserModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+      />
     </main>
   )
 }

@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/components/auth/auth-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/toaster'
+import { Toaster as HotToaster } from 'react-hot-toast'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -33,6 +34,28 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
+            <HotToaster 
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#fff',
+                  color: '#333',
+                },
+                success: {
+                  iconTheme: {
+                    primary: '#10B981',
+                    secondary: '#fff',
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: '#EF4444',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
           </AuthProvider>
         </ThemeProvider>
       </body>

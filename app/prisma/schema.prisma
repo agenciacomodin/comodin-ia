@@ -24,6 +24,13 @@ enum OrganizationStatus {
   TRIAL
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
 // Tabla Organizations - Base del multi-tenant (aislamiento por tenant)
 model Organization {
   id          String   @id @default(cuid())
@@ -48,6 +55,7 @@ model Organization {
   
   // Relaciones
   users       User[]
+  invitations Invitation[]
   
   @@map("organizations")
 }
@@ -87,6 +95,41 @@ model User {
   @@index([organizationId])
   @@index([email])
   @@map("users")
+}
+
+// Tabla Invitations - Sistema de invitaciones de equipo
+model Invitation {
+  id             String           @id @default(cuid())
+  email          String
+  token          String           @unique
+  role           UserRole         @default(AGENTE)
+  status         InvitationStatus @default(PENDING)
+  
+  // Multi-tenant: Invitación específica por organización
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Usuario que envió la invitación
+  invitedBy      String           // User ID
+  invitedByName  String           // Nombre del invitador para el email
+  
+  // Datos opcionales para pre-llenar el registro
+  firstName      String?
+  lastName       String?
+  message        String?          // Mensaje personalizado
+  
+  // Control de expiración
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  
+  // Fechas
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  @@index([organizationId])
+  @@index([email])
+  @@index([token])
+  @@map("invitations")
 }
 
 // Tablas requeridas para NextAuth.js
