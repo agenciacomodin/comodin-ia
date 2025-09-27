@@ -15,7 +15,8 @@ import {
   Shield, 
   Palette, 
   MessageSquare,
-  CreditCard
+  CreditCard,
+  Puzzle
 } from 'lucide-react'
 
 export default async function SettingsPage() {
@@ -42,6 +43,10 @@ export default async function SettingsPage() {
             <TabsTrigger value="channels">
               <MessageSquare className="w-4 h-4 mr-2" />
               Canales
+            </TabsTrigger>
+            <TabsTrigger value="integrations">
+              <Puzzle className="w-4 h-4 mr-2" />
+              Integraciones
             </TabsTrigger>
             <TabsTrigger value="quick-replies">
               <MessageSquare className="w-4 h-4 mr-2" />
@@ -202,6 +207,106 @@ export default async function SettingsPage() {
                   <Button asChild className="bg-blue-600 hover:bg-blue-700">
                     <a href="/settings/channels">
                       Ir a Gestión de Canales
+                    </a>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="integrations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Integraciones Disponibles</CardTitle>
+                <CardDescription>
+                  Conecta COMODÍN IA con tus herramientas favoritas para automatizar procesos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 border rounded-lg bg-gradient-to-r from-orange-50 to-red-50">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <Puzzle className="h-8 w-8 text-orange-600" />
+                    <div>
+                      <h3 className="font-medium text-orange-900">Centro de Integraciones</h3>
+                      <p className="text-orange-700 text-sm mt-1">
+                        Conecta con plataformas de e-commerce, CRM, ERP y más
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Shopify */}
+                    <div className="p-4 bg-white rounded-lg border shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <div className="w-4 h-4 bg-green-600 rounded"></div>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">Shopify</h4>
+                            <p className="text-xs text-gray-500">E-commerce</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">Disponible</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Consulta productos, pedidos e inventario en tiempo real
+                      </p>
+                      <Button size="sm" variant="outline" className="w-full">
+                        Conectar
+                      </Button>
+                    </div>
+
+                    {/* WooCommerce */}
+                    <div className="p-4 bg-white rounded-lg border shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <div className="w-4 h-4 bg-purple-600 rounded"></div>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">WooCommerce</h4>
+                            <p className="text-xs text-gray-500">E-commerce</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">Disponible</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Gestiona productos y pedidos de tu tienda WordPress
+                      </p>
+                      <Button size="sm" variant="outline" className="w-full">
+                        Conectar
+                      </Button>
+                    </div>
+
+                    {/* TiendaNube */}
+                    <div className="p-4 bg-white rounded-lg border shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <div className="w-4 h-4 bg-orange-600 rounded"></div>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-900">TiendaNube</h4>
+                            <p className="text-xs text-gray-500">E-commerce</p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">Disponible</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        Sincroniza catálogo y pedidos de tu tienda
+                      </p>
+                      <Button size="sm" variant="outline" className="w-full">
+                        Conectar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center pt-4">
+                  <Button asChild className="bg-orange-600 hover:bg-orange-700">
+                    <a href="/settings/integrations">
+                      Ver Todas las Integraciones
                     </a>
                   </Button>
                 </div>

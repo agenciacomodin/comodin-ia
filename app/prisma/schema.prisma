@@ -145,6 +145,9 @@ model Organization {
   // Cache Inteligente de IA
   aiCache              AICache[]
   
+  // Sistema de Integraciones
+  integrations         OrganizationIntegration[]
+  
   @@map("organizations")
 }
 
@@ -183,6 +186,9 @@ model User {
   // Respuestas Rápidas creadas y modificadas
   createdQuickReplies QuickReply[]
   modifiedQuickReplies QuickReply[] @relation("QuickReplyModifiedBy")
+  
+  // Sistema de Integraciones
+  configuredIntegrations OrganizationIntegration[]
   
   @@index([organizationId])
   @@index([email])
@@ -1431,6 +1437,159 @@ model KnowledgeUsage {
   @@index([queryType])
   @@index([createdAt])
   @@map("knowledge_usage")
+}
+
+// Sistema de Integraciones para conectar con E-commerce
+enum IntegrationType {
+  ECOMMERCE      // Plataformas de e-commerce
+  CRM            // Sistemas de CRM  
+  ERP            // Sistemas ERP
+  PAYMENT        // Procesadores de pago
+  ANALYTICS      // Herramientas de análisis
+  MARKETING      // Plataformas de marketing
+  SOCIAL_MEDIA   // Redes sociales
+  OTHER          // Otras integraciones
+}
+
+enum IntegrationStatus {
+  AVAILABLE      // Disponible para conectar
+  CONNECTED      // Conectado y funcionando
+  DISCONNECTED   // Desconectado
+  ERROR          // Error en la conexión
+  PENDING        // Pendiente de configuración
+}
+
+enum EcommercePlatform {
+  SHOPIFY        // Shopify
+  WOOCOMMERCE    // WooCommerce
+  TIENDANUBE     // TiendaNube
+  MAGENTO        // Magento
+  PRESTASHOP     // PrestaShop
+  OTHER          // Otras plataformas
+}
+
+// Modelo base para todas las integraciones disponibles
+model Integration {
+  id               String            @id @default(cuid())
+  
+  // Información básica de la integración
+  name             String            // Nombre de la integración (ej: "Shopify", "WooCommerce")
+  displayName      String            // Nombre para mostrar
+  description      String?           // Descripción de la integración
+  type             IntegrationType   // Tipo de integración
+  platform         EcommercePlatform? // Plataforma específica (para e-commerce)
+  
+  // Configuración técnica
+  apiUrl           String?           // URL base de la API
+  authType         String            // Tipo de autenticación (oauth, api_key, basic)
+  authFields       Json              // Campos requeridos para autenticación
+  supportedFeatures Json            // Funcionalidades soportadas
+  
+  // Configuración visual
+  iconUrl          String?           // URL del ícono
+  brandColor       String?           // Color de la marca
+  
+  // Metadatos
+  isActive         Boolean           @default(true) // Si la integración está activa
+  version          String            @default("1.0") // Versión de la integración
+  documentation    String?           // URL de documentación
+  
+  // Relaciones
+  connections      OrganizationIntegration[] // Conexiones de organizaciones
+  
+  // Control de fechas
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  @@unique([name])
+  @@map("integrations")
+}
+
+// Conexiones específicas de organizaciones con integraciones
+model OrganizationIntegration {
+  id               String            @id @default(cuid())
+  
+  // Relaciones
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integrationId    String
+  integration      Integration       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  
+  // Estado de la conexión
+  status           IntegrationStatus @default(PENDING)
+  
+  // Configuración específica de la organización
+  config           Json              // Configuración específica (credenciales encriptadas, settings)
+  name             String?           // Nombre personalizado para esta conexión
+  
+  // Datos de autenticación (encriptados)
+  credentials      Json?             // Credenciales de API (encriptadas)
+  accessToken      String?           // Token de acceso (encriptado)
+  refreshToken     String?           // Token de refresco (encriptado)
+  tokenExpiresAt   DateTime?         // Fecha de expiración del token
+  
+  // Información de la tienda (para e-commerce)
+  storeUrl         String?           // URL de la tienda
+  storeName        String?           // Nombre de la tienda
+  storeId          String?           // ID único de la tienda
+  
+  // Metadatos de sincronización
+  lastSyncAt       DateTime?         // Última sincronización
+  syncErrors       Json?             // Errores de sincronización
+  syncStats        Json?             // Estadísticas de sincronización
+  
+  // Configuración de funcionalidades
+  features         Json?             // Funcionalidades habilitadas
+  webhookUrl       String?           // URL para webhooks
+  webhookSecret    String?           // Secret para webhooks
+  
+  // Control de fechas
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  // Usuario que configuró la integración
+  configuredBy     String?           // ID del usuario
+  configuredUser   User?             @relation(fields: [configuredBy], references: [id], onDelete: SetNull)
+  
+  // Relación con logs
+  logs             IntegrationLog[]
+  
+  @@unique([organizationId, integrationId])
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([status])
+  @@map("organization_integrations")
+}
+
+// Log de eventos de sincronización y uso de integraciones
+model IntegrationLog {
+  id               String            @id @default(cuid())
+  
+  // Relación
+  organizationIntegrationId String
+  organizationIntegration   OrganizationIntegration @relation(fields: [organizationIntegrationId], references: [id], onDelete: Cascade)
+  
+  // Información del evento
+  eventType        String            // Tipo de evento (sync, api_call, error, etc.)
+  eventData        Json?             // Datos del evento
+  success          Boolean           @default(true) // Si el evento fue exitoso
+  errorMessage     String?           // Mensaje de error si falló
+  
+  // Contexto del evento
+  userId           String?           // Usuario que triggereó el evento
+  conversationId   String?           // ID de conversación relacionada
+  
+  // Métricas
+  processingTime   Int?              // Tiempo de procesamiento en ms
+  recordsProcessed Int?              // Número de registros procesados
+  
+  // Control de fechas
+  createdAt        DateTime          @default(now())
+  
+  @@index([organizationIntegrationId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("integration_logs")
 }
 
 // Tablas requeridas para NextAuth.js

@@ -12,7 +12,10 @@ import {
   WhatsAppConnectionStatus,
   KnowledgeSourceType,
   KnowledgeSourceStatus,
-  ChunkProcessingStatus
+  ChunkProcessingStatus,
+  IntegrationType,
+  IntegrationStatus,
+  EcommercePlatform
 } from '@prisma/client'
 
 export type Expense = {
@@ -1229,5 +1232,203 @@ export interface EmbeddingProvider {
   getDimensions(): number
   getModelName(): string
   getCost(tokenCount: number): number
+}
+
+// =============================================================================
+// TIPOS PARA EL SISTEMA DE INTEGRACIONES
+// =============================================================================
+
+// Integración base con información completa
+export interface IntegrationWithDetails {
+  id: string
+  name: string
+  displayName: string
+  description?: string
+  type: IntegrationType
+  platform?: EcommercePlatform
+  iconUrl?: string
+  brandColor?: string
+  isActive: boolean
+  version: string
+  documentation?: string
+  authType: string
+  authFields: any
+  supportedFeatures: any
+  connectionStatus?: IntegrationStatus
+  connectionId?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Conexión de organización con integración
+export interface OrganizationIntegrationDetails {
+  id: string
+  organizationId: string
+  integrationId: string
+  integration: IntegrationWithDetails
+  status: IntegrationStatus
+  config: any
+  name?: string
+  storeUrl?: string
+  storeName?: string
+  storeId?: string
+  lastSyncAt?: Date
+  syncErrors?: any
+  syncStats?: any
+  features?: any
+  createdAt: Date
+  updatedAt: Date
+  configuredBy?: string
+  configuredUser?: {
+    id: string
+    name?: string
+    email: string
+  }
+}
+
+// Datos para conectar una nueva integración
+export interface IntegrationConnectionData {
+  integrationId: string
+  name?: string
+  credentials: Record<string, string>
+  config?: Record<string, any>
+  features?: string[]
+}
+
+// Estadísticas de integraciones
+export interface IntegrationsStats {
+  total: number
+  connected: number
+  disconnected: number
+  error: number
+  byType: Record<IntegrationType, number>
+  recentActivity: Array<{
+    id: string
+    action: string
+    integrationName: string
+    timestamp: Date
+    status: string
+  }>
+}
+
+// Labels y configuraciones para el frontend
+export const INTEGRATION_TYPE_LABELS = {
+  ECOMMERCE: 'E-commerce',
+  CRM: 'CRM',
+  ERP: 'ERP',
+  PAYMENT: 'Pagos',
+  ANALYTICS: 'Análisis',
+  MARKETING: 'Marketing',
+  SOCIAL_MEDIA: 'Redes Sociales',
+  OTHER: 'Otros'
+} as const
+
+export const INTEGRATION_STATUS_LABELS = {
+  AVAILABLE: 'Disponible',
+  CONNECTED: 'Conectado',
+  DISCONNECTED: 'Desconectado',
+  ERROR: 'Error',
+  PENDING: 'Pendiente'
+} as const
+
+export const INTEGRATION_STATUS_COLORS = {
+  AVAILABLE: 'gray',
+  CONNECTED: 'green',
+  DISCONNECTED: 'yellow',
+  ERROR: 'red',
+  PENDING: 'blue'
+} as const
+
+export const ECOMMERCE_PLATFORM_LABELS = {
+  SHOPIFY: 'Shopify',
+  WOOCOMMERCE: 'WooCommerce',
+  TIENDANUBE: 'TiendaNube',
+  MAGENTO: 'Magento',
+  PRESTASHOP: 'PrestaShop',
+  OTHER: 'Otras'
+} as const
+
+// Configuraciones por plataforma de e-commerce
+export const ECOMMERCE_CONFIGS = {
+  SHOPIFY: {
+    displayName: 'Shopify',
+    description: 'Conecta tu tienda Shopify para consultar productos, pedidos e inventario',
+    authType: 'oauth',
+    authFields: ['shop_domain', 'access_token'],
+    iconUrl: '/integrations/shopify.svg',
+    brandColor: '#7AB55C',
+    supportedFeatures: ['products', 'orders', 'customers', 'inventory'],
+    documentation: 'https://docs.shopify.com/api'
+  },
+  WOOCOMMERCE: {
+    displayName: 'WooCommerce',
+    description: 'Conecta tu tienda WooCommerce para gestionar productos y pedidos',
+    authType: 'api_key',
+    authFields: ['site_url', 'consumer_key', 'consumer_secret'],
+    iconUrl: '/integrations/woocommerce.svg',
+    brandColor: '#7F54B3',
+    supportedFeatures: ['products', 'orders', 'customers'],
+    documentation: 'https://woocommerce.github.io/woocommerce-rest-api-docs/'
+  },
+  TIENDANUBE: {
+    displayName: 'TiendaNube',
+    description: 'Conecta tu tienda TiendaNube para sincronizar catálogo y pedidos',
+    authType: 'oauth',
+    authFields: ['store_id', 'access_token'],
+    iconUrl: '/integrations/tiendanube.svg',
+    brandColor: '#FF6900',
+    supportedFeatures: ['products', 'orders', 'customers'],
+    documentation: 'https://developers.tiendanube.com/'
+  }
+} as const
+
+// Tipos para consultas de e-commerce
+export interface EcommerceQuery {
+  type: 'product' | 'order' | 'customer' | 'inventory'
+  params: Record<string, any>
+}
+
+export interface EcommerceProduct {
+  id: string
+  name: string
+  description?: string
+  price: number
+  currency: string
+  stock?: number
+  sku?: string
+  images?: string[]
+  categories?: string[]
+  status: 'active' | 'inactive' | 'draft'
+  url?: string
+}
+
+export interface EcommerceOrder {
+  id: string
+  orderNumber: string
+  status: string
+  total: number
+  currency: string
+  customerEmail?: string
+  customerName?: string
+  items: Array<{
+    productId: string
+    productName: string
+    quantity: number
+    price: number
+  }>
+  shippingAddress?: any
+  createdAt: Date
+  updatedAt?: Date
+}
+
+export interface EcommerceCustomer {
+  id: string
+  email: string
+  name?: string
+  phone?: string
+  totalOrders?: number
+  totalSpent?: number
+  createdAt: Date
+  lastOrderAt?: Date
 }
 

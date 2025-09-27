@@ -5,6 +5,7 @@ import { getActiveAIProviders, getDecryptedApiKey } from './ai-providers';
 import { AIUsageType } from '@prisma/client';
 import { db } from './db';
 import { createHash } from 'crypto';
+import { EcommerceService } from './services/ecommerce-service';
 
 export interface AIBrokerRequest {
   organizationId: string;
@@ -121,8 +122,11 @@ export class AIBrokerService {
         };
       }
 
+      // 🛒 INTEGRACIONES E-COMMERCE: Enriquecer prompt con datos de la tienda
+      const enrichedRequest = await this.enrichWithEcommerceData(request);
+      
       // 6. Obtener configuración del proveedor de IA apropiado
-      const providerConfig = await this.getProviderForRequest(request);
+      const providerConfig = await this.getProviderForRequest(enrichedRequest);
       if (!providerConfig) {
         return {
           success: false,
@@ -137,7 +141,7 @@ export class AIBrokerService {
       const aiResult = await this.callExternalProvider(
         providerConfig, 
         apiKey, 
-        request
+        enrichedRequest
       );
 
       if (!aiResult.success) {
@@ -767,6 +771,166 @@ export class AIBrokerService {
         topCachedQueries: []
       };
     }
+  }
+
+  /**
+   * 🛒 INTEGRACIÓN E-COMMERCE: Enriquecer el prompt con datos de la tienda
+   * 
+   * Este método detecta si el usuario está preguntando sobre productos, pedidos o inventario
+   * y enriquece el prompt con los datos relevantes de las tiendas conectadas.
+   */
+  private static async enrichWithEcommerceData(request: AIBrokerRequest): Promise<AIBrokerRequest> {
+    try {
+      // 1. Detectar si la pregunta requiere datos de e-commerce
+      const ecommerceIntent = EcommerceService.detectEcommerceIntent(request.prompt);
+      
+      if (!ecommerceIntent.needsEcommerce) {
+        // No necesita datos de e-commerce, devolver request original
+        return request;
+      }
+
+      console.log('🛒 E-commerce intent detected:', ecommerceIntent);
+
+      // 2. Ejecutar consulta a las APIs de e-commerce
+      let ecommerceData = null;
+      let ecommerceContext = '';
+
+      try {
+        ecommerceData = await EcommerceService.executeQuery(
+          request.organizationId,
+          {
+            type: ecommerceIntent.queryType as any,
+            params: ecommerceIntent.params
+          }
+        );
+
+        // 3. Formatear los datos para el contexto del prompt
+        ecommerceContext = this.formatEcommerceContext(ecommerceIntent.queryType!, ecommerceData);
+
+      } catch (ecommerceError) {
+        console.log('⚠️ Error fetching e-commerce data:', ecommerceError);
+        
+        // Si hay error obteniendo datos de e-commerce, incluir esa información en el contexto
+        ecommerceContext = `\n\n[INFORMACIÓN DEL SISTEMA]\nNo se pudieron consultar los datos de la tienda en este momento. Error: ${ecommerceError instanceof Error ? ecommerceError.message : 'Error desconocido'}\nPor favor, solicita al cliente que verifique la conexión con su tienda o contacte al administrador.`;
+      }
+
+      // 4. Crear el prompt enriquecido
+      const enrichedPrompt = this.createEnrichedPrompt(request.prompt, ecommerceContext, ecommerceIntent.queryType!);
+
+      // 5. Devolver request modificado
+      return {
+        ...request,
+        prompt: enrichedPrompt,
+        metadata: {
+          ...request.metadata,
+          hasEcommerceData: true,
+          ecommerceIntent,
+          originalPrompt: request.prompt
+        }
+      };
+
+    } catch (error) {
+      console.error('Error enriching with e-commerce data:', error);
+      // Si hay error, devolver el request original
+      return request;
+    }
+  }
+
+  /**
+   * Formatear datos de e-commerce para el contexto del prompt
+   */
+  private static formatEcommerceContext(queryType: string, data: any): string {
+    if (!data || (Array.isArray(data) && data.length === 0)) {
+      return `\n\n[DATOS DE LA TIENDA]\nNo se encontraron resultados para la consulta de ${queryType}.`;
+    }
+
+    let context = `\n\n[DATOS ACTUALES DE LA TIENDA]\n`;
+
+    switch (queryType) {
+      case 'product':
+        context += `Productos encontrados:\n`;
+        data.forEach((product: any, index: number) => {
+          context += `${index + 1}. ${product.name}\n`;
+          context += `   - Precio: $${product.price} ${product.currency}\n`;
+          context += `   - Stock: ${product.stock || 'No disponible'}\n`;
+          context += `   - SKU: ${product.sku || 'N/A'}\n`;
+          context += `   - Estado: ${product.status}\n`;
+          if (product.description) {
+            context += `   - Descripción: ${product.description.substring(0, 100)}...\n`;
+          }
+          context += `\n`;
+        });
+        break;
+
+      case 'order':
+        context += `Pedidos encontrados:\n`;
+        data.forEach((order: any, index: number) => {
+          context += `${index + 1}. Pedido ${order.orderNumber}\n`;
+          context += `   - Estado: ${order.status}\n`;
+          context += `   - Total: $${order.total} ${order.currency}\n`;
+          context += `   - Cliente: ${order.customerName || order.customerEmail}\n`;
+          context += `   - Fecha: ${new Date(order.createdAt).toLocaleDateString('es-ES')}\n`;
+          if (order.items && order.items.length > 0) {
+            context += `   - Productos: ${order.items.map((item: any) => `${item.productName} (${item.quantity})`).join(', ')}\n`;
+          }
+          context += `\n`;
+        });
+        break;
+
+      case 'customer':
+        context += `Clientes encontrados:\n`;
+        data.forEach((customer: any, index: number) => {
+          context += `${index + 1}. ${customer.name || customer.email}\n`;
+          context += `   - Email: ${customer.email}\n`;
+          context += `   - Teléfono: ${customer.phone || 'N/A'}\n`;
+          context += `   - Total pedidos: ${customer.totalOrders || 0}\n`;
+          context += `   - Total gastado: $${customer.totalSpent || 0}\n`;
+          context += `   - Cliente desde: ${new Date(customer.createdAt).toLocaleDateString('es-ES')}\n`;
+          context += `\n`;
+        });
+        break;
+
+      case 'inventory':
+        context += `Información de inventario:\n`;
+        if (Array.isArray(data)) {
+          data.forEach((item: any, index: number) => {
+            context += `${index + 1}. ${item.name || item.sku}\n`;
+            context += `   - Stock disponible: ${item.available || 'N/A'}\n`;
+            context += `   - Ubicación: ${item.location || 'N/A'}\n`;
+            context += `\n`;
+          });
+        }
+        break;
+
+      default:
+        context += `Datos: ${JSON.stringify(data, null, 2)}\n`;
+    }
+
+    return context;
+  }
+
+  /**
+   * Crear el prompt enriquecido con contexto de e-commerce
+   */
+  private static createEnrichedPrompt(originalPrompt: string, ecommerceContext: string, queryType: string): string {
+    const systemInstructions = `[INSTRUCCIONES PARA EL ASISTENTE]
+Eres un asistente inteligente de atención al cliente para un negocio con tienda en línea. 
+
+IMPORTANTE:
+1. Usa ÚNICAMENTE los datos actualizados de la tienda proporcionados abajo
+2. Si los datos están vacíos o no coinciden con la pregunta, explica amablemente que no encuentras esa información
+3. Sé específico con precios, stock, números de pedido y estados
+4. Siempre mantén un tono profesional y servicial
+5. Si hay errores de conexión con la tienda, explica la situación y sugiere contactar al administrador
+
+CONTEXTO ACTUAL DE LA TIENDA:${ecommerceContext}
+
+PREGUNTA DEL CLIENTE:
+${originalPrompt}
+
+Por favor responde usando únicamente la información proporcionada arriba.`;
+
+    return systemInstructions;
   }
 }
 
