@@ -58,7 +58,8 @@ export enum Permission {
   // Super Admin
   PLATFORM_ADMINISTRATION = 'PLATFORM_ADMINISTRATION',
   VIEW_ALL_ORGANIZATIONS = 'VIEW_ALL_ORGANIZATIONS',
-  MANAGE_SYSTEM_SETTINGS = 'MANAGE_SYSTEM_SETTINGS'
+  MANAGE_SYSTEM_SETTINGS = 'MANAGE_SYSTEM_SETTINGS',
+  MANAGE_AI_PROVIDERS = 'MANAGE_AI_PROVIDERS'
 }
 
 // Matriz de permisos por rol
@@ -201,6 +202,7 @@ export function canAccessRoute(role: UserRole, route: string): boolean {
     '/settings/ai': [Permission.CONFIGURE_AI],
     '/reports': [Permission.VIEW_REPORTS],
     '/admin': [Permission.PLATFORM_ADMINISTRATION],
+    '/admin/ai-providers': [Permission.MANAGE_AI_PROVIDERS],
     '/distributor': [Permission.MANAGE_CLIENT_ORGANIZATIONS]
   }
 

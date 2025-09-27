@@ -333,7 +333,11 @@ model AITransaction {
   walletId       String
   wallet         AIWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
   
-  // Detalles del uso de IA
+  // Relación con el proveedor de IA
+  providerId     String?      // ID del proveedor configurado
+  provider       AIProvider?  @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  
+  // Detalles del uso de IA (mantenemos providerName para compatibilidad)
   usageType      AIUsageType  // Tipo de uso de IA
   providerName   String       // Nombre del proveedor (OpenAI, Claude, etc.)
   modelUsed      String?      // Modelo específico usado
@@ -410,6 +414,60 @@ model FinancialTransaction {
   @@index([type])
   @@index([createdAt])
   @@map("financial_transactions")
+}
+
+// Tabla AIProviders - Gestión centralizada de proveedores de IA (Super Admin only)
+model AIProvider {
+  id              String   @id @default(cuid())
+  
+  // Información del proveedor
+  name            String   // Nombre del proveedor (OpenAI, Gemini, Claude, etc.)
+  displayName     String   // Nombre para mostrar en UI
+  description     String?  // Descripción del proveedor
+  logoUrl         String?  // URL del logo del proveedor
+  
+  // Configuración técnica
+  apiUrl          String   // URL base de la API
+  apiKeyName      String   @default("API_KEY") // Nombre del campo de la clave (API_KEY, ACCESS_TOKEN, etc.)
+  encryptedApiKey String   // Clave API encriptada
+  
+  // Configuración del modelo
+  defaultModel    String?  // Modelo por defecto
+  availableModels Json?    // Lista de modelos disponibles
+  
+  // Configuración de precios
+  inputPricePerToken  Decimal? @db.Decimal(10, 8) // Precio por token de entrada
+  outputPricePerToken Decimal? @db.Decimal(10, 8) // Precio por token de salida
+  currency            String   @default("USD")
+  
+  // Estado y configuración
+  isActive        Boolean  @default(true)  // Si el proveedor está activo
+  isDefault       Boolean  @default(false) // Si es el proveedor por defecto
+  maxTokensPerRequest Int? // Límite de tokens por request
+  rateLimitPerMinute  Int? // Límite de requests por minuto
+  
+  // Metadatos
+  metadata        Json?    // Configuración adicional específica del proveedor
+  
+  // Auditoria - Solo Super Admin puede gestionar
+  createdBy       String   // ID del Super Admin que lo creó
+  createdByName   String   // Nombre del Super Admin para auditoria
+  updatedBy       String?  // ID del último Super Admin que lo modificó
+  updatedByName   String?  // Nombre del último Super Admin que lo modificó
+  
+  // Control de fechas
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastUsedAt      DateTime? // Última vez que se usó este proveedor
+  
+  // Relaciones
+  transactions    AITransaction[] // Transacciones que usaron este proveedor
+  
+  @@unique([name]) // Nombre del proveedor debe ser único
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([createdBy])
+  @@map("ai_providers")
 }
 
 // Tablas requeridas para NextAuth.js
