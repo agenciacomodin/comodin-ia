@@ -18,6 +18,7 @@ export interface ExtendedUser {
   phone?: string | null
   country?: string | null
   permissions?: string[]
+  createdAt: Date
 }
 
 declare module "next-auth" {
@@ -35,6 +36,7 @@ declare module "next-auth" {
     phone?: string | null
     country?: string | null
     permissions?: string[]
+    createdAt: Date
   }
 }
 

@@ -35,6 +35,21 @@ export enum Permission {
   VIEW_REPORTS = 'VIEW_REPORTS',
   VIEW_ADVANCED_ANALYTICS = 'VIEW_ADVANCED_ANALYTICS',
   
+  // Gestión de campañas
+  MANAGE_CAMPAIGNS = 'MANAGE_CAMPAIGNS',
+  VIEW_CAMPAIGNS = 'VIEW_CAMPAIGNS',
+  
+  // Gestión de contactos
+  VIEW_CONTACTS = 'VIEW_CONTACTS',
+  MANAGE_CONTACTS = 'MANAGE_CONTACTS',
+  
+  // Base de conocimiento
+  MANAGE_KNOWLEDGE_BASE = 'MANAGE_KNOWLEDGE_BASE',
+  VIEW_KNOWLEDGE_BASE = 'VIEW_KNOWLEDGE_BASE',
+  
+  // Configuraciones de organización
+  MANAGE_ORGANIZATION_SETTINGS = 'MANAGE_ORGANIZATION_SETTINGS',
+  
   // Distribuidores
   MANAGE_CLIENT_ORGANIZATIONS = 'MANAGE_CLIENT_ORGANIZATIONS',
   VIEW_COMMISSIONS = 'VIEW_COMMISSIONS',
@@ -77,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Gestión completa de su organización
     Permission.MANAGE_ORGANIZATION,
     Permission.VIEW_ORGANIZATION_SETTINGS,
+    Permission.MANAGE_ORGANIZATION_SETTINGS,
     
     // Gestión completa de usuarios
     Permission.MANAGE_USERS,
@@ -103,7 +119,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     
     // Reportes y analíticas
     Permission.VIEW_REPORTS,
-    Permission.VIEW_ADVANCED_ANALYTICS
+    Permission.VIEW_ADVANCED_ANALYTICS,
+    
+    // Campañas
+    Permission.MANAGE_CAMPAIGNS,
+    Permission.VIEW_CAMPAIGNS,
+    
+    // Contactos
+    Permission.VIEW_CONTACTS,
+    Permission.MANAGE_CONTACTS,
+    
+    // Base de conocimiento
+    Permission.MANAGE_KNOWLEDGE_BASE,
+    Permission.VIEW_KNOWLEDGE_BASE
   ],
   
   AGENTE: [
@@ -114,7 +142,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.USE_AI_FEATURES,
     
     // Vista limitada de configuraciones
-    Permission.VIEW_WHATSAPP_SETTINGS
+    Permission.VIEW_WHATSAPP_SETTINGS,
+    
+    // Vista básica de contactos
+    Permission.VIEW_CONTACTS,
+    
+    // Vista básica de base de conocimiento
+    Permission.VIEW_KNOWLEDGE_BASE,
+    
+    // Vista básica de campañas
+    Permission.VIEW_CAMPAIGNS
   ]
 }
 
