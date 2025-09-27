@@ -1,5 +1,5 @@
 
-import { MercadoPagoConfig, PreApproval, Payment } from 'mercadopago';
+import { MercadoPagoConfig, PreApproval, Payment, Preference } from 'mercadopago';
 
 // Configuración de MercadoPago
 const mercadopago = new MercadoPagoConfig({
@@ -9,6 +9,7 @@ const mercadopago = new MercadoPagoConfig({
 
 const preApproval = new PreApproval(mercadopago);
 const payment = new Payment(mercadopago);
+const preference = new Preference(mercadopago);
 
 export interface CreateMercadoPagoSubscriptionData {
   email: string;
@@ -29,6 +30,19 @@ export interface CreateMercadoPagoPaymentData {
   payerEmail: string;
   organizationId: string;
   externalReference: string;
+}
+
+export interface CreateMercadoPagoPreferenceData {
+  organizationId: string;
+  title: string;
+  price: number;
+  currency: string;
+  description: string;
+  customerEmail: string;
+  successUrl: string;
+  failureUrl: string;
+  pendingUrl: string;
+  metadata?: Record<string, any>;
 }
 
 export class MercadoPagoService {
@@ -149,6 +163,50 @@ export class MercadoPagoService {
     } catch (error) {
       console.error('Error retrieving MercadoPago payment:', error);
       throw new Error('Failed to retrieve MercadoPago payment');
+    }
+  }
+
+  // Crear preferencia de pago (para pagos únicos)
+  static async createPreference(data: CreateMercadoPagoPreferenceData): Promise<{ preferenceId: string; initPoint: string }> {
+    try {
+      const preferenceData = {
+        items: [
+          {
+            id: `wallet_recharge_${data.organizationId}`,
+            title: data.title,
+            unit_price: data.price,
+            quantity: 1,
+            currency_id: data.currency
+          }
+        ],
+        payer: {
+          email: data.customerEmail
+        },
+        back_urls: {
+          success: data.successUrl,
+          failure: data.failureUrl,
+          pending: data.pendingUrl
+        },
+        auto_return: 'approved',
+        external_reference: data.organizationId,
+        statement_descriptor: 'COMODIN IA',
+        metadata: {
+          organization_id: data.organizationId,
+          type: 'wallet_recharge',
+          source: 'comodin_ia',
+          ...data.metadata
+        }
+      };
+
+      const response = await preference.create({ body: preferenceData });
+      
+      return {
+        preferenceId: response.id!,
+        initPoint: response.init_point!
+      };
+    } catch (error) {
+      console.error('Error creating MercadoPago preference:', error);
+      throw new Error('Failed to create MercadoPago preference');
     }
   }
 

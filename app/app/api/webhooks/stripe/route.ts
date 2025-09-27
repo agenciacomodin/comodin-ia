@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StripeService } from '@/lib/stripe-service';
 import { SubscriptionService } from '@/lib/subscription-service';
+import { AIWalletService } from '@/lib/ai-wallet-service';
 import { db } from '@/lib/db';
 import { SubscriptionStatus, PaymentStatus, PaymentProvider } from '@prisma/client';
 
@@ -33,6 +34,10 @@ export async function POST(request: NextRequest) {
         
       case 'invoice.payment_failed':
         await handlePaymentFailed(event.data.object as any);
+        break;
+        
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object as any);
         break;
         
       default:
@@ -205,5 +210,62 @@ async function handlePaymentFailed(invoice: any) {
     await SubscriptionService.handleFailedPayment(organizationId);
   } catch (error) {
     console.error('Error handling failed payment:', error);
+  }
+}
+
+// Manejar checkout session completado (para recargas de billetera)
+async function handleCheckoutSessionCompleted(session: any) {
+  try {
+    const metadata = session.metadata;
+    
+    // Verificar si es una recarga de billetera
+    if (metadata?.type !== 'wallet_recharge') {
+      console.log('Checkout session not for wallet recharge');
+      return;
+    }
+
+    const organizationId = metadata.organizationId;
+    const amount = parseFloat(metadata.amount);
+    const currency = metadata.currency;
+
+    if (!organizationId || !amount) {
+      console.error('Missing required metadata for wallet recharge');
+      return;
+    }
+
+    // Buscar el usuario que hizo la recarga
+    const organization = await db.organization.findUnique({
+      where: { id: organizationId },
+      include: {
+        users: {
+          where: { role: 'PROPIETARIO' },
+          take: 1
+        }
+      }
+    });
+
+    if (!organization || organization.users.length === 0) {
+      console.error('Organization or owner not found for wallet recharge');
+      return;
+    }
+
+    const owner = organization.users[0];
+
+    // Procesar la recarga de billetera
+    await AIWalletService.rechargeWallet({
+      organizationId,
+      amount,
+      currency: currency.toUpperCase(),
+      paymentProvider: PaymentProvider.STRIPE,
+      paymentReference: session.payment_intent || session.id,
+      userId: owner.id,
+      userName: owner.name || owner.email,
+      description: `Wallet recharge via Stripe - $${amount}`
+    });
+
+    console.log(`Wallet recharged successfully for organization ${organizationId}: $${amount}`);
+
+  } catch (error) {
+    console.error('Error handling wallet recharge:', error);
   }
 }

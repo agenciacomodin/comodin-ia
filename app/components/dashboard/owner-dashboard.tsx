@@ -29,7 +29,8 @@ import {
   Building2,
   Shield,
   Activity,
-  CreditCard
+  CreditCard,
+  Wallet
 } from 'lucide-react'
 import { SubscriptionWidget } from './subscription-widget'
 
@@ -187,7 +188,7 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <ConditionalRender permissions={[Permission.MANAGE_WHATSAPP_CONFIG]}>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-green-50 hover:border-green-200">
                     <MessageSquare className="h-6 w-6 text-green-600" />
@@ -214,6 +215,17 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                   >
                     <CreditCard className="h-6 w-6 text-indigo-600" />
                     <span className="text-sm">Gestionar Plan</span>
+                  </Button>
+                </ConditionalRender>
+                
+                <ConditionalRender permissions={[Permission.VIEW_BILLING]}>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-emerald-50 hover:border-emerald-200"
+                    onClick={() => window.location.href = '/facturacion'}
+                  >
+                    <Wallet className="h-6 w-6 text-emerald-600" />
+                    <span className="text-sm">Billetera IA</span>
                   </Button>
                 </ConditionalRender>
                 

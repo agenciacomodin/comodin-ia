@@ -60,6 +60,23 @@ enum PaymentStatus {
   CANCELED
 }
 
+enum AIUsageType {
+  CHAT_RESPONSE          // Respuesta de chat con IA
+  TEXT_ANALYSIS          // Análisis de texto
+  SENTIMENT_ANALYSIS     // Análisis de sentimientos
+  CONTENT_GENERATION     // Generación de contenido
+  TRANSLATION           // Traducción
+  SUMMARY               // Resumen de texto
+  OTHER                 // Otros usos
+}
+
+enum TransactionType {
+  WALLET_RECHARGE       // Recarga de billetera
+  AI_USAGE_DEDUCTION    // Descuento por uso de IA
+  REFUND                // Reembolso
+  ADJUSTMENT            // Ajuste manual
+}
+
 // Tabla Organizations - Base del multi-tenant (aislamiento por tenant)
 model Organization {
   id          String   @id @default(cuid())
@@ -99,10 +116,12 @@ model Organization {
   updatedAt   DateTime @updatedAt
   
   // Relaciones
-  users         User[]
-  invitations   Invitation[]
-  subscriptions Subscription[]
-  payments      Payment[]
+  users                User[]
+  invitations          Invitation[]
+  subscriptions        Subscription[]
+  payments             Payment[]
+  aiWallet             AIWallet?
+  financialTransactions FinancialTransaction[]
   
   @@map("organizations")
 }
@@ -272,6 +291,125 @@ model Payment {
   @@index([stripePaymentIntentId])
   @@index([mercadopagoPaymentId])
   @@map("payments")
+}
+
+// Tabla AIWallet - Billetera virtual para consumo de IA
+model AIWallet {
+  id             String        @id @default(cuid())
+  
+  // Relación con la organización (1:1)
+  organizationId String        @unique
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Saldo actual de la billetera
+  balance        Decimal       @default(0.00) @db.Decimal(10, 2)
+  currency       String        @default("USD")
+  
+  // Estadísticas de uso
+  totalSpent     Decimal       @default(0.00) @db.Decimal(10, 2)  // Total gastado en IA
+  totalRecharged Decimal       @default(0.00) @db.Decimal(10, 2)  // Total recargado
+  transactionCount Int         @default(0)    // Número de transacciones
+  
+  // Control de alertas de saldo bajo
+  lowBalanceThreshold Decimal  @default(10.00) @db.Decimal(10, 2)
+  alertsEnabled       Boolean  @default(true)
+  lastLowBalanceAlert DateTime?
+  
+  // Control de fechas
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  // Relaciones
+  aiTransactions AITransaction[]
+  
+  @@map("ai_wallets")
+}
+
+// Tabla AITransaction - Registro detallado de cada uso de IA
+model AITransaction {
+  id             String       @id @default(cuid())
+  
+  // Relación con la billetera
+  walletId       String
+  wallet         AIWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  
+  // Detalles del uso de IA
+  usageType      AIUsageType  // Tipo de uso de IA
+  providerName   String       // Nombre del proveedor (OpenAI, Claude, etc.)
+  modelUsed      String?      // Modelo específico usado
+  
+  // Costos de la transacción
+  providerCost   Decimal      @db.Decimal(10, 6) // Costo que nos cobró el proveedor
+  clientCost     Decimal      @db.Decimal(10, 6) // Costo cobrado al cliente (providerCost * 1.30)
+  margin         Decimal      @db.Decimal(5, 4) @default(0.30) // Margen aplicado (30%)
+  
+  // Detalles técnicos del uso
+  inputTokens    Int?         // Tokens de entrada
+  outputTokens   Int?         // Tokens de salida
+  totalTokens    Int?         // Total de tokens procesados
+  processingTime Int?         // Tiempo de procesamiento en ms
+  
+  // Metadatos de la transacción
+  description    String?      // Descripción del uso
+  metadata       Json?        // Información adicional (request info, response info, etc.)
+  
+  // Usuario que realizó la acción
+  userId         String?      // ID del usuario que usó la IA
+  userName       String?      // Nombre del usuario para el historial
+  
+  // Balance después de la transacción
+  balanceAfter   Decimal      @db.Decimal(10, 2) // Saldo después del descuento
+  
+  // Control de fechas
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@index([walletId])
+  @@index([usageType])
+  @@index([createdAt])
+  @@map("ai_transactions")
+}
+
+// Tabla FinancialTransaction - Historial completo de transacciones financieras
+model FinancialTransaction {
+  id                String          @id @default(cuid())
+  
+  // Relación con la organización
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Tipo y detalles de la transacción
+  type              TransactionType
+  amount            Decimal         @db.Decimal(10, 2) // Monto de la transacción
+  currency          String          @default("USD")
+  
+  // Descripción y referencia
+  description       String
+  reference         String?         // Referencia externa (stripe payment id, etc.)
+  
+  // Detalles específicos según el tipo
+  paymentProvider   PaymentProvider? // Si es recarga: proveedor usado
+  aiTransactionId   String?         // Si es uso de IA: referencia a la transacción
+  
+  // Saldos antes y después de la transacción  
+  balanceBefore     Decimal         @db.Decimal(10, 2)
+  balanceAfter      Decimal         @db.Decimal(10, 2)
+  
+  // Usuario que realizó la transacción
+  userId            String?         // Usuario responsable de la transacción
+  userName          String?         // Nombre del usuario para el historial
+  
+  // Información adicional
+  metadata          Json?           // Información adicional
+  
+  // Control de fechas
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@index([organizationId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("financial_transactions")
 }
 
 // Tablas requeridas para NextAuth.js

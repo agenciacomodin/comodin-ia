@@ -186,6 +186,55 @@ export class StripeService {
     }
   }
 
+  // Crear checkout session para pagos únicos (recargas de billetera)
+  static async createPaymentCheckoutSession(data: {
+    amount: number; // en centavos
+    currency: string;
+    description: string;
+    successUrl: string;
+    cancelUrl: string;
+    organizationId: string;
+    customerEmail: string;
+    metadata?: Record<string, string>;
+  }): Promise<{ sessionId: string; sessionUrl: string }> {
+    try {
+      const session = await stripe.checkout.sessions.create({
+        customer_email: data.customerEmail,
+        line_items: [
+          {
+            price_data: {
+              currency: data.currency.toLowerCase(),
+              product_data: {
+                name: data.description,
+                description: `Recarga de billetera IA - ${data.organizationId}`
+              },
+              unit_amount: data.amount,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: 'payment',
+        success_url: data.successUrl,
+        cancel_url: data.cancelUrl,
+        metadata: {
+          organizationId: data.organizationId,
+          type: 'wallet_recharge',
+          amount: (data.amount / 100).toString(),
+          currency: data.currency,
+          ...data.metadata
+        }
+      });
+
+      return {
+        sessionId: session.id,
+        sessionUrl: session.url!
+      };
+    } catch (error) {
+      console.error('Error creating Stripe payment checkout session:', error);
+      throw new Error('Failed to create Stripe payment checkout session');
+    }
+  }
+
   // Procesar webhook
   static constructWebhookEvent(body: string | Buffer, signature: string): Stripe.Event {
     try {

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoService } from '@/lib/mercadopago-service';
 import { SubscriptionService } from '@/lib/subscription-service';
+import { AIWalletService } from '@/lib/ai-wallet-service';
 import { db } from '@/lib/db';
 import { SubscriptionStatus, PaymentStatus, PaymentProvider } from '@prisma/client';
 
@@ -115,11 +116,6 @@ async function handlePaymentNotification(payment: any) {
     const organizationId = payment.external_reference;
     if (!organizationId) return;
 
-    // Buscar la suscripción relacionada
-    const subscription = await db.subscription.findFirst({
-      where: { organizationId }
-    });
-
     let paymentStatus: PaymentStatus;
     let paidAt: Date | null = null;
     let failedAt: Date | null = null;
@@ -142,6 +138,50 @@ async function handlePaymentNotification(payment: any) {
       default:
         paymentStatus = PaymentStatus.PENDING;
     }
+
+    // Verificar si es una recarga de billetera
+    const isWalletRecharge = payment.description?.includes('AI Wallet Recharge') || 
+                           payment.external_reference?.includes('wallet_recharge');
+
+    if (isWalletRecharge && paymentStatus === PaymentStatus.COMPLETED) {
+      // Procesar recarga de billetera
+      const amount = payment.transaction_amount || 0;
+      const currency = payment.currency_id || 'USD';
+
+      // Buscar el usuario owner de la organización
+      const organization = await db.organization.findUnique({
+        where: { id: organizationId },
+        include: {
+          users: {
+            where: { role: 'PROPIETARIO' },
+            take: 1
+          }
+        }
+      });
+
+      if (organization && organization.users.length > 0) {
+        const owner = organization.users[0];
+
+        await AIWalletService.rechargeWallet({
+          organizationId,
+          amount,
+          currency: currency.toUpperCase(),
+          paymentProvider: PaymentProvider.MERCADO_PAGO,
+          paymentReference: payment.id.toString(),
+          userId: owner.id,
+          userName: owner.name || owner.email,
+          description: `Wallet recharge via MercadoPago - ${currency} ${amount}`
+        });
+
+        console.log(`Wallet recharged successfully via MercadoPago for organization ${organizationId}: ${currency} ${amount}`);
+        return; // No crear registro de pago adicional para recargas
+      }
+    }
+
+    // Buscar la suscripción relacionada (solo para pagos de suscripción)
+    const subscription = await db.subscription.findFirst({
+      where: { organizationId }
+    });
 
     // Crear registro de pago
     await db.payment.create({
