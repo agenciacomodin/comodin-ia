@@ -1,4 +1,5 @@
 
+
 import { UserRole, OrganizationStatus } from '@prisma/client'
 
 export type Expense = {
@@ -59,14 +60,14 @@ export const ROLE_HIERARCHY_CONFIG: Record<UserRole, RoleHierarchy> = {
     label: 'Propietario',
     description: 'Administra completamente su organización - Gestiona equipo',
     color: 'blue',
-    permissions: ['manage_organization', 'manage_users', 'configure_all']
+    permissions: ['manage_organization', 'manage_users', 'configure_all', 'use_ai_broker']
   },
   AGENTE: {
     level: 1,
     label: 'Agente',
     description: 'Atiende conversaciones asignadas - Acceso limitado',
     color: 'green',
-    permissions: ['view_assigned_conversations', 'use_basic_features']
+    permissions: ['view_assigned_conversations', 'use_basic_features', 'use_ai_broker']
   }
 }
 
@@ -133,6 +134,8 @@ export interface AccessScope {
   canCreateOrganizations: boolean
   canViewBilling: boolean
   canConfigureSystem: boolean
+  canUseAIBroker: boolean
+  canManageAIProviders: boolean
   availableOrganizations: string[]
   managableRoles: UserRole[]
 }
@@ -161,3 +164,83 @@ export interface OperationContext {
   permissions: string[]
   accessScope: AccessScope
 }
+
+// Nuevos tipos para AI Broker
+export interface AIBrokerStats {
+  totalRequests: number
+  totalCost: number
+  averageResponseTime: number
+  topProviders: Array<{ name: string; usage: number }>
+  requestsToday: number
+  costToday: number
+  successRate: number
+  failureRate: number
+}
+
+export interface AIProviderStats {
+  id: string
+  name: string
+  displayName: string
+  totalRequests: number
+  totalCost: number
+  averageResponseTime: number
+  successRate: number
+  lastUsed?: Date
+  isActive: boolean
+  isDefault: boolean
+}
+
+export interface WalletSummary {
+  organizationId: string
+  organizationName: string
+  balance: number
+  totalSpent: number
+  totalRecharged: number
+  transactionCount: number
+  lowBalanceAlert: boolean
+  currency: string
+  lastTransaction?: Date
+}
+
+// Enum para errores específicos del AI Broker
+export enum AIBrokerErrorType {
+  INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE',
+  NO_PROVIDER_AVAILABLE = 'NO_PROVIDER_AVAILABLE',
+  PROVIDER_ERROR = 'PROVIDER_ERROR',
+  INVALID_REQUEST = 'INVALID_REQUEST',
+  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
+  INTERNAL_ERROR = 'INTERNAL_ERROR'
+}
+
+// Tipos para monitoreo y logging
+export interface AIBrokerLogEntry {
+  id: string
+  organizationId: string
+  userId?: string
+  timestamp: Date
+  requestType: string
+  provider: string
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cost: number
+  processingTime: number
+  success: boolean
+  error?: string
+  metadata?: Record<string, any>
+}
+
+export interface SystemHealthCheck {
+  timestamp: Date
+  services: {
+    database: { status: 'healthy' | 'degraded' | 'down'; responseTime: number }
+    aiBroker: { status: 'healthy' | 'degraded' | 'down'; activeProviders: number }
+    wallet: { status: 'healthy' | 'degraded' | 'down'; totalBalance: number }
+  }
+  metrics: {
+    requestsPerMinute: number
+    averageResponseTime: number
+    errorRate: number
+  }
+}
+

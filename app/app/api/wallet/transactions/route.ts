@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { AIWalletService } from '@/lib/ai-wallet-service';
 import { getUserOrganization } from '@/lib/auth-utils';
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/wallet/transactions - Obtener historial de transacciones de IA
 export async function GET(request: NextRequest) {
   try {

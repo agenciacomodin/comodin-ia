@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { AIWalletService } from '@/lib/ai-wallet-service';
 import { getUserOrganization } from '@/lib/auth-utils';
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/wallet/financial-history - Obtener historial financiero completo
 export async function GET(request: NextRequest) {
   try {

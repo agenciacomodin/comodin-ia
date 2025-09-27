@@ -1,11 +1,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
+
 import { getServerSession } from 'next-auth'
+
 import { authOptions } from '@/lib/auth'
+
 import { prisma } from '@/lib/db'
+
 import { getDataFilter } from '@/lib/hierarchy'
+
 import { Permission } from '@/lib/permissions'
+
 import { ExtendedUser } from '@/lib/auth'
+
 
 /**
  * GET /api/organizations

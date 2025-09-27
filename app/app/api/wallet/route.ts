@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { AIWalletService } from '@/lib/ai-wallet-service';
 import { getUserOrganization } from '@/lib/auth-utils';
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/wallet - Obtener estadísticas de la billetera
 export async function GET() {
   try {

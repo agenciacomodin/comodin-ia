@@ -30,6 +30,8 @@ export enum Permission {
   CONFIGURE_AI = 'CONFIGURE_AI',
   USE_AI_FEATURES = 'USE_AI_FEATURES',
   VIEW_AI_USAGE = 'VIEW_AI_USAGE',
+  USE_AI_BROKER = 'USE_AI_BROKER',
+  VIEW_AI_BROKER_STATS = 'VIEW_AI_BROKER_STATS',
   
   // Reportes y analíticas
   VIEW_REPORTS = 'VIEW_REPORTS',
@@ -83,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Uso básico de IA
     Permission.USE_AI_FEATURES,
     Permission.VIEW_AI_USAGE,
+    Permission.USE_AI_BROKER,
     
     // Conversaciones de sus clientes
     Permission.VIEW_ALL_CONVERSATIONS,
@@ -117,6 +120,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CONFIGURE_AI,
     Permission.USE_AI_FEATURES,
     Permission.VIEW_AI_USAGE,
+    Permission.USE_AI_BROKER,
+    Permission.VIEW_AI_BROKER_STATS,
     
     // Reportes y analíticas
     Permission.VIEW_REPORTS,
@@ -141,6 +146,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     
     // Uso básico de IA
     Permission.USE_AI_FEATURES,
+    Permission.USE_AI_BROKER,
     
     // Vista limitada de configuraciones
     Permission.VIEW_WHATSAPP_SETTINGS,
@@ -203,6 +209,7 @@ export function canAccessRoute(role: UserRole, route: string): boolean {
     '/reports': [Permission.VIEW_REPORTS],
     '/admin': [Permission.PLATFORM_ADMINISTRATION],
     '/admin/ai-providers': [Permission.MANAGE_AI_PROVIDERS],
+    '/admin/ai-broker': [Permission.PLATFORM_ADMINISTRATION],
     '/distributor': [Permission.MANAGE_CLIENT_ORGANIZATIONS]
   }
 

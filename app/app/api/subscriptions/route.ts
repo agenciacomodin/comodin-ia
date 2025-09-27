@@ -1,9 +1,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic'
+
 import { getServerSession } from 'next-auth';
+
 import { authOptions } from '@/lib/auth';
+
 import { SubscriptionService } from '@/lib/subscription-service';
+
 import { SubscriptionPlan, PaymentProvider } from '@prisma/client';
+
 
 // GET /api/subscriptions - Obtener detalles de suscripción
 export async function GET(request: NextRequest) {

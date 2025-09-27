@@ -1,9 +1,16 @@
 
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
+
 import { getServerSession } from 'next-auth'
+
 import { authOptions } from '@/lib/auth'
+
 import { InvitationService } from '@/lib/invitations'
+
 import { UserRole } from '@prisma/client'
+
 
 export async function POST(
   request: NextRequest,
