@@ -1,6 +1,14 @@
 
 
-import { UserRole, OrganizationStatus } from '@prisma/client'
+import { 
+  UserRole, 
+  OrganizationStatus, 
+  ContactStatus, 
+  ConversationStatus, 
+  ConversationPriority,
+  MessageType,
+  MessageDirection
+} from '@prisma/client'
 
 export type Expense = {
   id: string
@@ -243,4 +251,226 @@ export interface SystemHealthCheck {
     errorRate: number
   }
 }
+
+// ===========================================
+// CENTRO DE COMUNICACIÓN (CRM) - TIPOS
+// ===========================================
+
+// Tipos para el CRM
+export interface ContactSummary {
+  id: string
+  name: string
+  phone: string
+  email?: string
+  avatar?: string
+  status: ContactStatus
+  isVip: boolean
+  lastContact?: Date
+  unreadCount: number
+  tags: Array<{
+    id: string
+    name: string
+    color?: string
+  }>
+  lastConversation?: {
+    id: string
+    lastMessageText?: string
+    lastMessageAt?: Date
+    status: ConversationStatus
+  }
+}
+
+export interface ConversationSummary2 {
+  id: string
+  contact: {
+    id: string
+    name: string
+    phone: string
+    avatar?: string
+    isVip: boolean
+  }
+  status: ConversationStatus
+  priority: ConversationPriority
+  assignedAgent?: {
+    id: string
+    name: string
+  }
+  messageCount: number
+  unreadCount: number
+  lastMessageAt?: Date
+  lastMessageText?: string
+  lastMessageFrom?: MessageDirection
+}
+
+export interface MessageSummary {
+  id: string
+  conversationId: string
+  direction: MessageDirection
+  type: MessageType
+  content: string
+  attachmentUrl?: string
+  attachmentType?: string
+  attachmentName?: string
+  sentBy?: string
+  sentByName?: string
+  isRead: boolean
+  readAt?: Date
+  sentAt: Date
+  replyTo?: {
+    id: string
+    content: string
+    sentByName?: string
+  }
+}
+
+export interface ContactDetail extends ContactSummary {
+  firstName?: string
+  lastName?: string
+  company?: string
+  jobTitle?: string
+  address?: string
+  city?: string
+  country?: string
+  source?: string
+  leadScore?: number
+  lifetimeValue?: number
+  firstContact?: Date
+  notes: Array<{
+    id: string
+    content: string
+    isImportant: boolean
+    createdBy: string
+    createdByName: string
+    createdAt: Date
+  }>
+}
+
+export interface ConversationDetail {
+  id: string
+  contact: ContactSummary
+  status: ConversationStatus
+  priority: ConversationPriority
+  assignedAgent?: {
+    id: string
+    name: string
+  }
+  title?: string
+  summary?: string
+  messageCount: number
+  unreadCount: number
+  messages: MessageSummary[]
+  createdAt: Date
+  updatedAt: Date
+  closedAt?: Date
+}
+
+// Tipos para filtros del CRM
+export interface CRMFilters {
+  status?: ConversationStatus[]
+  priority?: ConversationPriority[]
+  assignedAgent?: string
+  contactStatus?: ContactStatus[]
+  tags?: string[]
+  dateRange?: {
+    from: Date
+    to: Date
+  }
+  searchTerm?: string
+}
+
+// Tipos para estadísticas del CRM
+export interface CRMStats {
+  totalContacts: number
+  activeConversations: number
+  pendingConversations: number
+  resolvedConversations: number
+  unreadMessages: number
+  averageResponseTime: number
+  conversationsToday: number
+  newContactsThisWeek: number
+  vipContacts: number
+}
+
+// Tipos para acciones del CRM
+export interface SendMessageRequest {
+  conversationId: string
+  content: string
+  type: MessageType
+  attachmentUrl?: string
+  attachmentType?: string
+  attachmentName?: string
+  replyToId?: string
+}
+
+export interface CreateContactRequest {
+  name: string
+  phone: string
+  email?: string
+  firstName?: string
+  lastName?: string
+  company?: string
+  source?: string
+  tags?: string[]
+}
+
+export interface CreateConversationRequest {
+  contactId: string
+  initialMessage?: string
+  priority?: ConversationPriority
+  assignedAgentId?: string
+}
+
+export interface UpdateConversationRequest {
+  status?: ConversationStatus
+  priority?: ConversationPriority
+  assignedAgentId?: string | null
+  title?: string
+  summary?: string
+}
+
+export interface AddContactNoteRequest {
+  contactId: string
+  content: string
+  isImportant?: boolean
+}
+
+export interface AddContactTagRequest {
+  contactId: string
+  name: string
+  color?: string
+}
+
+// Enums para el frontend
+export const CONVERSATION_STATUS_LABELS = {
+  OPEN: 'Abierta',
+  PENDING: 'Pendiente',
+  RESOLVED: 'Resuelta',
+  TRANSFERRED: 'Transferida',
+  ARCHIVED: 'Archivada'
+} as const
+
+export const CONVERSATION_PRIORITY_LABELS = {
+  LOW: 'Baja',
+  MEDIUM: 'Media',
+  HIGH: 'Alta',
+  URGENT: 'Urgente'
+} as const
+
+export const CONVERSATION_PRIORITY_COLORS = {
+  LOW: 'gray',
+  MEDIUM: 'blue',
+  HIGH: 'orange',
+  URGENT: 'red'
+} as const
+
+export const MESSAGE_TYPE_LABELS = {
+  TEXT: 'Texto',
+  IMAGE: 'Imagen',
+  DOCUMENT: 'Documento',
+  AUDIO: 'Audio',
+  VIDEO: 'Video',
+  LOCATION: 'Ubicación',
+  CONTACT: 'Contacto',
+  SYSTEM: 'Sistema'
+} as const
 

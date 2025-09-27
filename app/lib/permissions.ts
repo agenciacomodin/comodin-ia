@@ -44,6 +44,19 @@ export enum Permission {
   // Gestión de contactos
   VIEW_CONTACTS = 'VIEW_CONTACTS',
   MANAGE_CONTACTS = 'MANAGE_CONTACTS',
+  CREATE_CONTACTS = 'CREATE_CONTACTS',
+  DELETE_CONTACTS = 'DELETE_CONTACTS',
+  
+  // Centro de comunicación (CRM)
+  VIEW_CRM_INBOX = 'VIEW_CRM_INBOX',
+  MANAGE_CRM_CONVERSATIONS = 'MANAGE_CRM_CONVERSATIONS',
+  SEND_MESSAGES = 'SEND_MESSAGES',
+  VIEW_ALL_CRM_CONVERSATIONS = 'VIEW_ALL_CRM_CONVERSATIONS',
+  ASSIGN_CRM_CONVERSATIONS = 'ASSIGN_CRM_CONVERSATIONS',
+  MANAGE_CONTACT_TAGS = 'MANAGE_CONTACT_TAGS',
+  VIEW_CONTACT_NOTES = 'VIEW_CONTACT_NOTES',
+  MANAGE_CONTACT_NOTES = 'MANAGE_CONTACT_NOTES',
+  TRANSFER_CONVERSATIONS = 'TRANSFER_CONVERSATIONS',
   
   // Base de conocimiento
   MANAGE_KNOWLEDGE_BASE = 'MANAGE_KNOWLEDGE_BASE',
@@ -134,6 +147,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Contactos
     Permission.VIEW_CONTACTS,
     Permission.MANAGE_CONTACTS,
+    Permission.CREATE_CONTACTS,
+    Permission.DELETE_CONTACTS,
+    
+    // Centro de comunicación (CRM)
+    Permission.VIEW_CRM_INBOX,
+    Permission.MANAGE_CRM_CONVERSATIONS,
+    Permission.SEND_MESSAGES,
+    Permission.VIEW_ALL_CRM_CONVERSATIONS,
+    Permission.ASSIGN_CRM_CONVERSATIONS,
+    Permission.MANAGE_CONTACT_TAGS,
+    Permission.VIEW_CONTACT_NOTES,
+    Permission.MANAGE_CONTACT_NOTES,
+    Permission.TRANSFER_CONVERSATIONS,
     
     // Base de conocimiento
     Permission.MANAGE_KNOWLEDGE_BASE,
@@ -158,7 +184,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_KNOWLEDGE_BASE,
     
     // Vista básica de campañas
-    Permission.VIEW_CAMPAIGNS
+    Permission.VIEW_CAMPAIGNS,
+    
+    // CRM básico - solo conversaciones asignadas
+    Permission.VIEW_CRM_INBOX,
+    Permission.SEND_MESSAGES,
+    Permission.VIEW_CONTACT_NOTES,
+    Permission.MANAGE_CONTACT_NOTES
   ]
 }
 
@@ -198,8 +230,9 @@ export function getRolePermissions(role: UserRole): Permission[] {
 export function canAccessRoute(role: UserRole, route: string): boolean {
   const routePermissions: Record<string, Permission[]> = {
     '/dashboard': [Permission.VIEW_ASSIGNED_CONVERSATIONS, Permission.VIEW_ALL_CONVERSATIONS],
+    '/inbox': [Permission.VIEW_CRM_INBOX],
     '/conversations': [Permission.VIEW_ASSIGNED_CONVERSATIONS, Permission.VIEW_ALL_CONVERSATIONS],
-    '/contacts': [Permission.VIEW_ASSIGNED_CONVERSATIONS, Permission.VIEW_ALL_CONVERSATIONS],
+    '/contacts': [Permission.VIEW_CONTACTS],
     '/settings': [Permission.VIEW_ORGANIZATION_SETTINGS],
     '/settings/organization': [Permission.MANAGE_ORGANIZATION],
     '/settings/users': [Permission.MANAGE_USERS],

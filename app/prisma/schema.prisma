@@ -123,6 +123,13 @@ model Organization {
   aiWallet             AIWallet?
   financialTransactions FinancialTransaction[]
   
+  // Centro de Comunicación (CRM)
+  contacts             Contact[]
+  contactTags          ContactTag[]
+  contactNotes         ContactNote[]
+  conversations        Conversation[]
+  messages             Message[]
+  
   @@map("organizations")
 }
 
@@ -468,6 +475,286 @@ model AIProvider {
   @@index([isDefault])
   @@index([createdBy])
   @@map("ai_providers")
+}
+
+// ===========================================
+// CENTRO DE COMUNICACIÓN (CRM)
+// ===========================================
+
+enum ContactStatus {
+  ACTIVE        // Contacto activo
+  INACTIVE      // Contacto inactivo
+  BLOCKED       // Contacto bloqueado
+  ARCHIVED      // Contacto archivado
+}
+
+enum ConversationStatus {
+  OPEN          // Conversación abierta/activa
+  PENDING       // Pendiente de respuesta
+  RESOLVED      // Resuelta/cerrada
+  TRANSFERRED   // Transferida a otro agente
+  ARCHIVED      // Archivada
+}
+
+enum ConversationPriority {
+  LOW           // Prioridad baja
+  MEDIUM        // Prioridad media
+  HIGH          // Prioridad alta
+  URGENT        // Urgente
+}
+
+enum MessageType {
+  TEXT          // Mensaje de texto
+  IMAGE         // Imagen
+  DOCUMENT      // Documento
+  AUDIO         // Audio/Nota de voz
+  VIDEO         // Video
+  LOCATION      // Ubicación
+  CONTACT       // Contacto compartido
+  SYSTEM        // Mensaje del sistema
+}
+
+enum MessageDirection {
+  INCOMING      // Mensaje entrante (del cliente)
+  OUTGOING      // Mensaje saliente (del agente)
+}
+
+// Tabla Contact - Información de contactos/clientes
+model Contact {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica del contacto
+  name             String        // Nombre del contacto
+  phone            String        // Número de teléfono (único por organización)
+  email            String?       // Email opcional
+  avatar           String?       // URL del avatar/foto de perfil
+  
+  // Información adicional
+  firstName        String?       // Nombre
+  lastName         String?       // Apellido
+  company          String?       // Empresa/Organización
+  jobTitle         String?       // Cargo/Puesto
+  address          String?       // Dirección
+  city             String?       // Ciudad
+  country          String?       // País
+  timezone         String?       // Zona horaria del contacto
+  
+  // Estado y clasificación
+  status           ContactStatus @default(ACTIVE)
+  isVip            Boolean       @default(false) // Contacto VIP
+  
+  // Información de WhatsApp
+  whatsappId       String?       // ID interno de WhatsApp
+  whatsappName     String?       // Nombre en WhatsApp
+  lastSeen         DateTime?     // Última conexión en WhatsApp
+  
+  // Metadatos CRM
+  source           String?       // Origen del contacto (web, referido, etc.)
+  leadScore        Int?          // Puntaje de lead (0-100)
+  lifetimeValue    Decimal?      @db.Decimal(10, 2) // Valor de vida del cliente
+  
+  // Fechas importantes
+  firstContact     DateTime?     // Primera vez que contactó
+  lastContact      DateTime?     // Último contacto
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relaciones
+  conversations    Conversation[]
+  tags             ContactTag[]
+  notes            ContactNote[]
+  
+  @@unique([organizationId, phone]) // Un número único por organización
+  @@index([organizationId])
+  @@index([phone])
+  @@index([status])
+  @@index([isVip])
+  @@map("contacts")
+}
+
+// Tabla ContactTag - Sistema de etiquetas para clasificar contactos
+model ContactTag {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con el contacto
+  contactId        String
+  contact          Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  // Información de la etiqueta
+  name             String        // Nombre de la etiqueta (ej: "Cliente VIP", "Lead Caliente")
+  color            String?       // Color hexadecimal para la UI (#FF5733)
+  description      String?       // Descripción opcional
+  
+  // Usuario que asignó la etiqueta
+  createdBy        String?       // ID del usuario
+  createdByName    String?       // Nombre del usuario para auditoria
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  
+  @@unique([contactId, name]) // No duplicar etiquetas en el mismo contacto
+  @@index([organizationId])
+  @@index([contactId])
+  @@map("contact_tags")
+}
+
+// Tabla ContactNote - Notas internas sobre contactos (no visibles al cliente)
+model ContactNote {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con el contacto
+  contactId        String
+  contact          Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  // Contenido de la nota
+  content          String        @db.Text // Nota interna del equipo
+  isImportant      Boolean       @default(false) // Marcar como importante
+  
+  // Usuario que creó la nota
+  createdBy        String        // ID del usuario
+  createdByName    String        // Nombre del usuario para mostrar
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  @@index([organizationId])
+  @@index([contactId])
+  @@map("contact_notes")
+}
+
+// Tabla Conversation - Conversaciones/Chats individuales
+model Conversation {
+  id               String               @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con el contacto
+  contactId        String
+  contact          Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  // Estado de la conversación
+  status           ConversationStatus   @default(OPEN)
+  priority         ConversationPriority @default(MEDIUM)
+  
+  // Asignación de agente
+  assignedAgentId  String?              // ID del agente asignado
+  assignedAgentName String?             // Nombre del agente asignado
+  
+  // Información de la conversación
+  title            String?              // Título/Subject opcional
+  summary          String?              @db.Text // Resumen de la conversación
+  
+  // Métricas de la conversación
+  messageCount     Int                  @default(0) // Total de mensajes
+  unreadCount      Int                  @default(0) // Mensajes no leídos por el agente
+  
+  // Información temporal
+  lastMessageAt    DateTime?            // Fecha del último mensaje
+  lastMessageText  String?              // Texto del último mensaje (para preview)
+  lastMessageFrom  MessageDirection?    // Dirección del último mensaje
+  
+  // Tiempo de respuesta
+  firstResponseAt  DateTime?            // Primera respuesta del agente
+  avgResponseTime  Int?                 // Tiempo promedio de respuesta en minutos
+  
+  // WhatsApp específico
+  whatsappChatId   String?              // ID del chat en WhatsApp
+  
+  // Control de fechas
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  closedAt         DateTime?            // Fecha de cierre
+  
+  // Relaciones
+  messages         Message[]
+  
+  @@unique([organizationId, whatsappChatId]) // Chat único por organización
+  @@index([organizationId])
+  @@index([contactId])
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// Tabla Message - Mensajes individuales dentro de conversaciones
+model Message {
+  id               String           @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con la conversación
+  conversationId   String
+  conversation     Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Dirección y tipo del mensaje
+  direction        MessageDirection // INCOMING o OUTGOING
+  type             MessageType      @default(TEXT)
+  
+  // Contenido del mensaje
+  content          String           @db.Text // Texto del mensaje
+  
+  // Archivos adjuntos (para imágenes, documentos, etc.)
+  attachmentUrl    String?          // URL del archivo en cloud storage
+  attachmentType   String?          // MIME type del archivo
+  attachmentName   String?          // Nombre original del archivo
+  attachmentSize   Int?             // Tamaño del archivo en bytes
+  
+  // Información específica de WhatsApp
+  whatsappId       String?          // ID único del mensaje en WhatsApp
+  whatsappStatus   String?          // Estado en WhatsApp (sent, delivered, read)
+  
+  // Usuario que envió el mensaje (si es OUTGOING)
+  sentBy           String?          // ID del usuario/agente
+  sentByName       String?          // Nombre del usuario/agente
+  
+  // Estado del mensaje
+  isRead           Boolean          @default(false) // Si fue leído por el agente
+  readAt           DateTime?        // Cuándo fue leído
+  
+  // Información temporal
+  sentAt           DateTime         @default(now()) // Cuándo se envió
+  deliveredAt      DateTime?        // Cuándo se entregó
+  
+  // Respuesta a otro mensaje (threading)
+  replyToId        String?          // ID del mensaje al que responde
+  replyTo          Message?         @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies          Message[]        @relation("MessageReplies")
+  
+  // Metadatos adicionales
+  metadata         Json?            // Información adicional específica del mensaje
+  
+  // Control de fechas
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  @@unique([whatsappId]) // ID de WhatsApp debe ser único
+  @@index([organizationId])
+  @@index([conversationId])
+  @@index([direction])
+  @@index([type])
+  @@index([sentAt])
+  @@index([isRead])
+  @@map("messages")
 }
 
 // Tablas requeridas para NextAuth.js
