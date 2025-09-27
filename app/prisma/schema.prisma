@@ -134,6 +134,10 @@ model Organization {
   whatsappChannels     WhatsAppChannel[]
   quickReplies         QuickReply[]
   
+  // Automatizaciones (IA Activa)
+  automationRules      AutomationRule[]
+  aiAnalysisCache      AIAnalysisCache[]
+  
   @@map("organizations")
 }
 
@@ -884,6 +888,258 @@ model QuickReply {
   @@index([category])
   @@index([isActive])
   @@map("quick_replies")
+}
+
+// ===========================================
+// SISTEMA DE AUTOMATIZACIONES (IA ACTIVA)
+// ===========================================
+
+// Enums para el sistema de automatizaciones
+enum AIIntentionType {
+  SALES         // Intención de venta
+  SUPPORT       // Solicitud de soporte
+  QUESTION      // Pregunta general
+  COMPLAINT     // Queja o reclamo
+  BOOKING       // Reserva o cita
+  PAYMENT       // Relacionado a pagos
+  INFORMATION   // Solicitud de información
+  GREETING      // Saludo inicial
+  FAREWELL      // Despedida
+  OTHER         // Otra intención
+}
+
+enum AutomationConditionType {
+  INTENTION_DETECTED    // Intención detectada por IA
+  KEYWORDS_CONTAINS     // Mensaje contiene palabras clave
+  SENDER_IS_VIP         // El remitente es cliente VIP
+  TIME_RANGE           // Dentro de horario específico
+  FIRST_MESSAGE        // Es el primer mensaje del contacto
+  MESSAGE_COUNT        // Número de mensajes en la conversación
+  RESPONSE_TIME        // Tiempo desde último mensaje
+}
+
+enum AutomationActionType {
+  ADD_TAG              // Agregar etiqueta al contacto
+  ASSIGN_AGENT         // Asignar agente específico
+  SET_PRIORITY         // Establecer prioridad
+  AUTO_REPLY           // Respuesta automática
+  MARK_VIP             // Marcar como VIP
+  TRANSFER_CONVERSATION // Transferir conversación
+  CREATE_TASK          // Crear tarea interna
+  SEND_NOTIFICATION    // Enviar notificación
+}
+
+// Tabla AutomationRule - Reglas de automatización configurables
+model AutomationRule {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información de la regla
+  name             String        // Nombre descriptivo de la regla
+  description      String?       // Descripción detallada
+  isActive         Boolean       @default(true)
+  
+  // Prioridad de ejecución (menor número = mayor prioridad)
+  priority         Int           @default(100)
+  
+  // Estadísticas de uso
+  executionCount   Int           @default(0)
+  lastExecutedAt   DateTime?
+  successCount     Int           @default(0)
+  errorCount       Int           @default(0)
+  
+  // Usuario que creó la regla
+  createdBy        String
+  createdByName    String
+  modifiedBy       String?
+  modifiedByName   String?
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relaciones
+  conditions       AutomationCondition[]
+  actions          AutomationAction[]
+  executions       AutomationExecution[]
+  
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([priority])
+  @@map("automation_rules")
+}
+
+// Tabla AutomationCondition - Condiciones para activar automatizaciones
+model AutomationCondition {
+  id            String                  @id @default(cuid())
+  
+  // Relación con la regla
+  ruleId        String
+  rule          AutomationRule          @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Tipo de condición
+  type          AutomationConditionType
+  
+  // Operador lógico con otras condiciones (AND/OR)
+  logicalOperator String                @default("AND") // AND, OR
+  
+  // Datos específicos según el tipo de condición
+  intentionTypes  AIIntentionType[]     @default([]) // Para INTENTION_DETECTED
+  keywords        String[]              @default([]) // Para KEYWORDS_CONTAINS
+  keywordMatchType String?              @default("ANY") // ANY, ALL, EXACT
+  
+  // Configuración temporal para TIME_RANGE
+  timeStart       String?               // "09:00"
+  timeEnd         String?               // "18:00"
+  weekdays        Int[]                 @default([]) // [1,2,3,4,5] (1=Monday)
+  timezone        String?               // Timezone para validar horarios
+  
+  // Configuración numérica
+  messageCountMin Int?                  // Mínimo de mensajes
+  messageCountMax Int?                  // Máximo de mensajes
+  responseTimeMin Int?                  // Tiempo mínimo en minutos
+  responseTimeMax Int?                  // Tiempo máximo en minutos
+  
+  // Metadatos adicionales
+  metadata        Json?                 // Configuración adicional específica
+  
+  // Control de fechas
+  createdAt       DateTime              @default(now())
+  
+  @@index([ruleId])
+  @@index([type])
+  @@map("automation_conditions")
+}
+
+// Tabla AutomationAction - Acciones a ejecutar cuando se cumple una regla
+model AutomationAction {
+  id              String               @id @default(cuid())
+  
+  // Relación con la regla
+  ruleId          String
+  rule            AutomationRule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Tipo de acción
+  type            AutomationActionType
+  
+  // Orden de ejecución dentro de la regla
+  executionOrder  Int                  @default(1)
+  
+  // Datos específicos según el tipo de acción
+  tagName         String?              // Para ADD_TAG
+  tagColor        String?              // Color de la etiqueta
+  
+  agentId         String?              // Para ASSIGN_AGENT
+  agentName       String?              // Nombre del agente
+  
+  priority        ConversationPriority? // Para SET_PRIORITY
+  
+  replyMessage    String?              @db.Text // Para AUTO_REPLY
+  replyDelay      Int?                 @default(0) // Delay en segundos
+  
+  targetAgentId   String?              // Para TRANSFER_CONVERSATION
+  transferReason  String?              // Razón de la transferencia
+  
+  taskTitle       String?              // Para CREATE_TASK
+  taskDescription String?              @db.Text
+  taskDueDate     DateTime?            // Fecha límite de la tarea
+  
+  notificationTitle String?            // Para SEND_NOTIFICATION
+  notificationMessage String?          @db.Text
+  notificationChannels String[]        @default([]) // email, slack, webhook
+  
+  // Metadatos adicionales
+  metadata        Json?                // Configuración adicional específica
+  
+  // Control de fechas
+  createdAt       DateTime             @default(now())
+  
+  @@index([ruleId])
+  @@index([type])
+  @@index([executionOrder])
+  @@map("automation_actions")
+}
+
+// Tabla AutomationExecution - Historial de ejecuciones de automatizaciones
+model AutomationExecution {
+  id                String           @id @default(cuid())
+  
+  // Relación con la regla ejecutada
+  ruleId            String
+  rule              AutomationRule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Contexto de la ejecución
+  messageId         String?          // Mensaje que disparó la automatización
+  conversationId    String?          // Conversación afectada
+  contactId         String?          // Contacto afectado
+  
+  // Resultado de la ejecución
+  success           Boolean          @default(false)
+  error             String?          @db.Text
+  executionTime     Int              @default(0) // Tiempo en milisegundos
+  
+  // IA Analysis realizado
+  detectedIntentions AIIntentionType[] @default([])
+  confidenceScore   Decimal?         @db.Decimal(5, 4) // Score de confianza 0-1
+  keywordsFound     String[]         @default([])
+  aiAnalysis        Json?            // Análisis completo de la IA
+  
+  // Acciones ejecutadas
+  actionsExecuted   Json?            // Lista de acciones que se ejecutaron
+  actionsSkipped    Json?            // Lista de acciones que se saltaron
+  
+  // Control de fechas
+  createdAt         DateTime         @default(now())
+  
+  @@index([ruleId])
+  @@index([messageId])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([success])
+  @@index([createdAt])
+  @@map("automation_executions")
+}
+
+// Tabla AIAnalysisCache - Cache de análisis de IA para optimizar performance
+model AIAnalysisCache {
+  id               String             @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Hash del contenido para evitar duplicados
+  contentHash      String             // MD5 o SHA1 del mensaje
+  
+  // Análisis realizado por la IA
+  detectedIntentions AIIntentionType[] @default([])
+  confidenceScore   Decimal           @db.Decimal(5, 4) // Score de confianza 0-1
+  sentiment         String?           // positive, negative, neutral
+  keywordsExtracted String[]          @default([])
+  
+  // Metadatos del análisis
+  aiProvider        String            // Proveedor de IA usado
+  modelUsed         String            // Modelo específico usado
+  processingTime    Int               // Tiempo de procesamiento en ms
+  analysisVersion   String            @default("1.0") // Versión del algoritmo
+  
+  // Control de cache
+  hitCount          Int               @default(0) // Cuántas veces se ha usado
+  lastUsedAt        DateTime          @default(now())
+  expiresAt         DateTime?         // Fecha de expiración del cache
+  
+  // Control de fechas
+  createdAt         DateTime          @default(now())
+  
+  @@unique([organizationId, contentHash]) // Hash único por organización
+  @@index([organizationId])
+  @@index([contentHash])
+  @@index([lastUsedAt])
+  @@index([expiresAt])
+  @@map("ai_analysis_cache")
 }
 
 // Tablas requeridas para NextAuth.js

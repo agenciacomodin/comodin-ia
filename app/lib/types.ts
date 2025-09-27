@@ -674,3 +674,276 @@ export const MAX_FILE_SIZES = {
   audio: 20 * 1024 * 1024 // 20MB
 } as const
 
+// =====================================
+// SISTEMA DE AUTOMATIZACIONES (IA ACTIVA)
+// =====================================
+
+import {
+  AIIntentionType,
+  AutomationConditionType,
+  AutomationActionType
+} from '@prisma/client'
+
+export {
+  AIIntentionType,
+  AutomationConditionType,
+  AutomationActionType
+}
+
+// Tipos para la configuración de automatizaciones
+export interface AutomationRuleSummary {
+  id: string
+  name: string
+  description?: string
+  isActive: boolean
+  priority: number
+  executionCount: number
+  lastExecutedAt?: Date
+  successCount: number
+  errorCount: number
+  successRate: number
+  createdByName: string
+  createdAt: Date
+  conditionsCount: number
+  actionsCount: number
+}
+
+export interface AutomationRuleDetail extends AutomationRuleSummary {
+  organizationId: string
+  createdBy: string
+  modifiedBy?: string
+  modifiedByName?: string
+  updatedAt: Date
+  conditions: AutomationConditionDetail[]
+  actions: AutomationActionDetail[]
+}
+
+export interface AutomationConditionDetail {
+  id: string
+  type: AutomationConditionType
+  logicalOperator: string
+  // Datos específicos según tipo
+  intentionTypes: AIIntentionType[]
+  keywords: string[]
+  keywordMatchType?: string
+  timeStart?: string
+  timeEnd?: string
+  weekdays: number[]
+  timezone?: string
+  messageCountMin?: number
+  messageCountMax?: number
+  responseTimeMin?: number
+  responseTimeMax?: number
+  metadata?: any
+}
+
+export interface AutomationActionDetail {
+  id: string
+  type: AutomationActionType
+  executionOrder: number
+  // Datos específicos según tipo
+  tagName?: string
+  tagColor?: string
+  agentId?: string
+  agentName?: string
+  priority?: string
+  replyMessage?: string
+  replyDelay?: number
+  targetAgentId?: string
+  transferReason?: string
+  taskTitle?: string
+  taskDescription?: string
+  taskDueDate?: Date
+  notificationTitle?: string
+  notificationMessage?: string
+  notificationChannels: string[]
+  metadata?: any
+}
+
+export interface AutomationExecutionSummary {
+  id: string
+  ruleId: string
+  ruleName: string
+  messageId?: string
+  conversationId?: string
+  contactId?: string
+  contactName?: string
+  success: boolean
+  error?: string
+  executionTime: number
+  detectedIntentions: AIIntentionType[]
+  confidenceScore?: number
+  keywordsFound: string[]
+  actionsExecuted: any
+  actionsSkipped: any
+  createdAt: Date
+}
+
+export interface AIAnalysisResult {
+  detectedIntentions: AIIntentionType[]
+  confidenceScore: number
+  sentiment: 'positive' | 'negative' | 'neutral'
+  keywordsExtracted: string[]
+  aiProvider: string
+  modelUsed: string
+  processingTime: number
+  analysisVersion: string
+}
+
+// Tipos para creación y actualización de reglas
+export interface CreateAutomationRuleRequest {
+  name: string
+  description?: string
+  priority?: number
+  conditions: CreateAutomationConditionRequest[]
+  actions: CreateAutomationActionRequest[]
+  isActive?: boolean
+}
+
+export interface CreateAutomationConditionRequest {
+  type: AutomationConditionType
+  logicalOperator?: string
+  intentionTypes?: AIIntentionType[]
+  keywords?: string[]
+  keywordMatchType?: string
+  timeStart?: string
+  timeEnd?: string
+  weekdays?: number[]
+  timezone?: string
+  messageCountMin?: number
+  messageCountMax?: number
+  responseTimeMin?: number
+  responseTimeMax?: number
+  metadata?: any
+}
+
+export interface CreateAutomationActionRequest {
+  type: AutomationActionType
+  executionOrder?: number
+  tagName?: string
+  tagColor?: string
+  agentId?: string
+  priority?: string
+  replyMessage?: string
+  replyDelay?: number
+  targetAgentId?: string
+  transferReason?: string
+  taskTitle?: string
+  taskDescription?: string
+  taskDueDate?: Date
+  notificationTitle?: string
+  notificationMessage?: string
+  notificationChannels?: string[]
+  metadata?: any
+}
+
+export interface UpdateAutomationRuleRequest extends Partial<CreateAutomationRuleRequest> {
+  id: string
+}
+
+// Labels para el frontend
+export const AI_INTENTION_LABELS = {
+  SALES: 'Ventas',
+  SUPPORT: 'Soporte',
+  QUESTION: 'Pregunta',
+  COMPLAINT: 'Queja',
+  BOOKING: 'Reserva',
+  PAYMENT: 'Pago',
+  INFORMATION: 'Información',
+  GREETING: 'Saludo',
+  FAREWELL: 'Despedida',
+  OTHER: 'Otro'
+} as const
+
+export const AI_INTENTION_COLORS = {
+  SALES: 'green',
+  SUPPORT: 'blue',
+  QUESTION: 'yellow',
+  COMPLAINT: 'red',
+  BOOKING: 'purple',
+  PAYMENT: 'orange',
+  INFORMATION: 'cyan',
+  GREETING: 'teal',
+  FAREWELL: 'gray',
+  OTHER: 'slate'
+} as const
+
+export const AUTOMATION_CONDITION_LABELS = {
+  INTENTION_DETECTED: 'Intención detectada',
+  KEYWORDS_CONTAINS: 'Contiene palabras clave',
+  SENDER_IS_VIP: 'Remitente es VIP',
+  TIME_RANGE: 'Horario específico',
+  FIRST_MESSAGE: 'Primer mensaje',
+  MESSAGE_COUNT: 'Número de mensajes',
+  RESPONSE_TIME: 'Tiempo de respuesta'
+} as const
+
+export const AUTOMATION_ACTION_LABELS = {
+  ADD_TAG: 'Agregar etiqueta',
+  ASSIGN_AGENT: 'Asignar agente',
+  SET_PRIORITY: 'Establecer prioridad',
+  AUTO_REPLY: 'Respuesta automática',
+  MARK_VIP: 'Marcar como VIP',
+  TRANSFER_CONVERSATION: 'Transferir conversación',
+  CREATE_TASK: 'Crear tarea',
+  SEND_NOTIFICATION: 'Enviar notificación'
+} as const
+
+// Filtros para automatizaciones
+export interface AutomationFilters {
+  isActive?: boolean
+  priority?: number[]
+  intentions?: AIIntentionType[]
+  conditionTypes?: AutomationConditionType[]
+  actionTypes?: AutomationActionType[]
+  dateRange?: {
+    from: Date
+    to: Date
+  }
+  searchTerm?: string
+}
+
+export interface AutomationStats {
+  totalRules: number
+  activeRules: number
+  totalExecutions: number
+  successfulExecutions: number
+  failedExecutions: number
+  avgExecutionTime: number
+  executionsToday: number
+  topIntentions: Array<{
+    intention: AIIntentionType
+    count: number
+  }>
+  topActions: Array<{
+    action: AutomationActionType
+    count: number
+  }>
+}
+
+// Constructor visual de reglas
+export interface RuleBuilderState {
+  ruleName: string
+  ruleDescription: string
+  priority: number
+  conditions: ConditionBuilderItem[]
+  actions: ActionBuilderItem[]
+  isActive: boolean
+}
+
+export interface ConditionBuilderItem {
+  id: string
+  type: AutomationConditionType
+  logicalOperator: 'AND' | 'OR'
+  configuration: any
+  isValid: boolean
+}
+
+export interface ActionBuilderItem {
+  id: string
+  type: AutomationActionType
+  executionOrder: number
+  configuration: any
+  isValid: boolean
+}
+

@@ -3,7 +3,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, Smile, Phone, Video, MoreVertical } from 'lucide-react'
+import { Send, Paperclip, Smile, Phone, Video, MoreVertical, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -25,6 +25,7 @@ import {
 } from '@/lib/types'
 import { MessageDirection, MessageType, ConversationStatus } from '@prisma/client'
 import { EnhancedMessageComposer } from './enhanced-message-composer'
+import { AIAutomationSimulator } from './ai-automation-simulator'
 
 interface ChatConversationPanelProps {
   conversation: ConversationDetail | null
@@ -160,6 +161,10 @@ export function ChatConversationPanel({
                     VIP
                   </Badge>
                 )}
+                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800 flex items-center gap-1">
+                  <Bot className="h-3 w-3" />
+                  IA Activa
+                </Badge>
               </h2>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <span>{conversation.contact.phone}</span>
@@ -183,6 +188,10 @@ export function ChatConversationPanel({
           </div>
 
           <div className="flex items-center space-x-2">
+            <AIAutomationSimulator
+              conversationId={conversation.id}
+              contactName={conversation.contact.name}
+            />
             <Button variant="ghost" size="sm">
               <Phone className="h-4 w-4" />
             </Button>
