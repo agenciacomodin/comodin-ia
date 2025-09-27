@@ -1,4 +1,5 @@
 
+
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { Permission } from '@/lib/permissions'

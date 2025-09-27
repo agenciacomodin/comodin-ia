@@ -21,8 +21,8 @@ const protectedRoutes = [
 // Rutas públicas que no requieren autenticación
 const publicRoutes = [
   '/',
-  '/login',
-  '/register',
+  '/auth/login',
+  '/auth/register',
   '/api/auth',
   '/api/health'
 ]
@@ -71,7 +71,7 @@ export default withAuth(
 
     // Si no hay usuario en rutas protegidas
     if (!user && protectedRoutes.some(route => pathname.startsWith(route))) {
-      const loginUrl = new URL('/login', req.url)
+      const loginUrl = new URL('/auth/login', req.url)
       loginUrl.searchParams.set('callbackUrl', req.url)
       return NextResponse.redirect(loginUrl)
     }
@@ -121,11 +121,9 @@ export default withAuth(
       }
 
       // Redirección de la raíz al dashboard apropiado
-      if (pathname === '/' || pathname === '/dashboard' && (userRole === 'SUPER_ADMIN' || userRole === 'DISTRIBUIDOR')) {
+      if (pathname === '/') {
         const targetDashboard = getDashboardRoute(userRole)
-        if (pathname !== targetDashboard) {
-          return NextResponse.redirect(new URL(targetDashboard, req.url))
-        }
+        return NextResponse.redirect(new URL(targetDashboard, req.url))
       }
 
       // Middleware específico para APIs
