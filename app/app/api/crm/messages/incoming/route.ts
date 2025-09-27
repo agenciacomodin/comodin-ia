@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
 import { PrismaClient } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
-import { processIncomingMessage } from '@/lib/ai-broker'
+import { processIncomingMessageEnhanced } from '@/lib/ai-broker-enhanced'
 
 const prisma = new PrismaClient()
 
@@ -150,11 +150,11 @@ export async function POST(request: NextRequest) {
     let aiProcessingResult = null
 
     try {
-      // *** AQUÍ ES DONDE LA INTELIGENCIA ARTIFICIAL SE ACTIVA ***
-      // Procesar el mensaje con el AI Broker y ejecutar automatizaciones
-      console.log(`🤖 Procesando mensaje con IA para organización ${organizationId}`)
+      // *** AQUÍ ES DONDE LA INTELIGENCIA ARTIFICIAL RESOLUTIVA SE ACTIVA ***
+      // Procesar el mensaje con el AI Broker Mejorado que incluye Knowledge Base
+      console.log(`🤖 Procesando mensaje con IA Resolutiva para organización ${organizationId}`)
       
-      aiProcessingResult = await processIncomingMessage(
+      aiProcessingResult = await processIncomingMessageEnhanced(
         organizationId,
         newMessage.id,
         content
@@ -164,7 +164,13 @@ export async function POST(request: NextRequest) {
         intentions: aiProcessingResult.analysis.detectedIntentions,
         confidence: aiProcessingResult.analysis.confidenceScore,
         automationsExecuted: aiProcessingResult.automationsExecuted,
-        automationsSkipped: aiProcessingResult.automationsSkipped
+        automationsSkipped: aiProcessingResult.automationsSkipped,
+        aiResolution: aiProcessingResult.aiResolution ? {
+          responseGenerated: true,
+          confidence: aiProcessingResult.aiResolution.confidence,
+          filesAttached: aiProcessingResult.aiResolution.filesToSend.length,
+          knowledgeSourcesUsed: aiProcessingResult.aiResolution.knowledgeUsed.length
+        } : null
       })
 
     } catch (aiError) {
@@ -183,7 +189,8 @@ export async function POST(request: NextRequest) {
         aiProcessing: aiProcessingResult ? {
           analysis: aiProcessingResult.analysis,
           automationsExecuted: aiProcessingResult.automationsExecuted,
-          automationsSkipped: aiProcessingResult.automationsSkipped
+          automationsSkipped: aiProcessingResult.automationsSkipped,
+          aiResolution: aiProcessingResult.aiResolution
         } : null
       },
       message: 'Mensaje recibido y procesado exitosamente'

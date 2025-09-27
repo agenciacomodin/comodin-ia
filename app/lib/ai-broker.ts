@@ -25,7 +25,7 @@ const openai = new OpenAI({
 })
 
 export class AIBroker {
-  private organizationId: string
+  protected organizationId: string
 
   constructor(organizationId: string) {
     this.organizationId = organizationId

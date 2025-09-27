@@ -26,6 +26,7 @@ import {
 import { MessageDirection, MessageType, ConversationStatus } from '@prisma/client'
 import { EnhancedMessageComposer } from './enhanced-message-composer'
 import { AIAutomationSimulator } from './ai-automation-simulator'
+import { EnhancedAIStatusIndicator } from './enhanced-ai-status-indicator'
 
 interface ChatConversationPanelProps {
   conversation: ConversationDetail | null
@@ -161,10 +162,10 @@ export function ChatConversationPanel({
                     VIP
                   </Badge>
                 )}
-                <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800 flex items-center gap-1">
-                  <Bot className="h-3 w-3" />
-                  IA Activa
-                </Badge>
+                <EnhancedAIStatusIndicator 
+                  conversationId={conversation.id}
+                  className="ml-2"
+                />
               </h2>
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <span>{conversation.contact.phone}</span>

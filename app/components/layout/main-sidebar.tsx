@@ -18,7 +18,9 @@ import {
   LogOut,
   User,
   Building,
-  Wallet
+  Wallet,
+  Bot,
+  TestTube2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -53,6 +55,12 @@ const navigationItems = [
     name: 'Base de Conocimiento',
     href: '/knowledge-base',
     icon: BookOpen
+  },
+  {
+    name: 'Pruebas de IA',
+    href: '/crm/ai-testing',
+    icon: TestTube2,
+    description: 'Resolutiva'
   },
   {
     name: 'Contactos',
