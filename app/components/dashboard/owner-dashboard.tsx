@@ -28,8 +28,10 @@ import {
   Zap,
   Building2,
   Shield,
-  Activity
+  Activity,
+  CreditCard
 } from 'lucide-react'
+import { SubscriptionWidget } from './subscription-widget'
 
 interface OwnerDashboardProps {
   organization: Organization
@@ -155,19 +157,10 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
             </Card>
 
             <ConditionalRender permissions={[Permission.VIEW_BILLING]}>
-              <Card className="border-l-4 border-l-yellow-500">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Plan Actual</CardTitle>
-                  <DollarSign className="h-5 w-5 text-yellow-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">Growth</div>
-                  <div className="flex items-center text-xs text-muted-foreground mt-2">
-                    <Shield className="h-3 w-3 mr-1 text-yellow-500" />
-                    $49/mes • Renovación: 15 días
-                  </div>
-                </CardContent>
-              </Card>
+              <SubscriptionWidget 
+                organizationId={user.organizationId!} 
+                userRole={user.role}
+              />
             </ConditionalRender>
 
             <Card className="border-l-4 border-l-purple-500">
@@ -194,7 +187,7 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <ConditionalRender permissions={[Permission.MANAGE_WHATSAPP_CONFIG]}>
                   <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-green-50 hover:border-green-200">
                     <MessageSquare className="h-6 w-6 text-green-600" />
@@ -210,6 +203,17 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                   >
                     <UserPlus className="h-6 w-6 text-blue-600" />
                     <span className="text-sm">Invitar Agente</span>
+                  </Button>
+                </ConditionalRender>
+                
+                <ConditionalRender permissions={[Permission.VIEW_BILLING]}>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-indigo-50 hover:border-indigo-200"
+                    onClick={() => window.location.href = '/suscripcion'}
+                  >
+                    <CreditCard className="h-6 w-6 text-indigo-600" />
+                    <span className="text-sm">Gestionar Plan</span>
                   </Button>
                 </ConditionalRender>
                 

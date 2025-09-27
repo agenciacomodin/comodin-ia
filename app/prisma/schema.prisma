@@ -31,6 +31,35 @@ enum InvitationStatus {
   CANCELLED
 }
 
+enum SubscriptionPlan {
+  FREE       // Plan gratuito
+  STARTER    // Plan básico
+  PREMIUM    // Plan intermedio  
+  ENTERPRISE // Plan empresarial
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  UNPAID
+  INCOMPLETE
+  TRIALING
+}
+
+enum PaymentProvider {
+  STRIPE
+  MERCADO_PAGO
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
 // Tabla Organizations - Base del multi-tenant (aislamiento por tenant)
 model Organization {
   id          String   @id @default(cuid())
@@ -44,6 +73,22 @@ model Organization {
   logo        String?  // URL de imagen
   status      OrganizationStatus @default(TRIAL)
   
+  // Sistema de suscripciones
+  currentPlan       SubscriptionPlan @default(FREE)
+  subscriptionId    String?          // ID de la suscripción activa
+  billingEmail      String?          // Email para facturación
+  
+  // Límites del plan actual
+  maxUsers          Int              @default(1)    // Usuarios permitidos
+  maxMessages       Int              @default(100)  // Mensajes por mes
+  maxIntegrations   Int              @default(1)    // Integraciones permitidas
+  hasAdvancedFeatures Boolean        @default(false) // Funcionalidades premium
+  
+  // Control de uso (reseteo mensual)
+  currentUsers      Int              @default(0)
+  currentMessages   Int              @default(0)
+  usageResetDate    DateTime?        // Fecha del próximo reseteo
+  
   // Configuración de la organización
   timezone    String   @default("America/Mexico_City")
   currency    String   @default("MXN")
@@ -54,8 +99,10 @@ model Organization {
   updatedAt   DateTime @updatedAt
   
   // Relaciones
-  users       User[]
-  invitations Invitation[]
+  users         User[]
+  invitations   Invitation[]
+  subscriptions Subscription[]
+  payments      Payment[]
   
   @@map("organizations")
 }
@@ -130,6 +177,101 @@ model Invitation {
   @@index([email])
   @@index([token])
   @@map("invitations")
+}
+
+// Tabla Subscriptions - Manejo de suscripciones y pagos recurrentes
+model Subscription {
+  id                  String              @id @default(cuid())
+  
+  // Relación con la organización
+  organizationId      String
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Detalles de la suscripción
+  plan                SubscriptionPlan
+  status              SubscriptionStatus  @default(TRIALING)
+  paymentProvider     PaymentProvider
+  
+  // IDs externos de los proveedores de pago
+  stripeSubscriptionId     String?        // ID de Stripe
+  stripeCustomerId         String?        // Customer ID de Stripe
+  mercadopagoPreapprovalId String?        // ID de preapproval de MercadoPago
+  mercadopagoPayerId       String?        // Payer ID de MercadoPago
+  
+  // Detalles de facturación
+  pricePerMonth       Decimal             // Precio mensual en la moneda local
+  currency            String              @default("USD")
+  billingCycle        String              @default("monthly") // monthly, yearly
+  
+  // Fechas importantes
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelAtPeriodEnd   Boolean             @default(false)
+  canceledAt          DateTime?
+  endedAt             DateTime?
+  trialStart          DateTime?
+  trialEnd            DateTime?
+  
+  // Metadata
+  metadata            Json?               // Información adicional
+  
+  // Fechas de control
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  
+  // Relaciones
+  payments           Payment[]
+  
+  @@index([organizationId])
+  @@index([stripeSubscriptionId])
+  @@index([mercadopagoPreapprovalId])
+  @@map("subscriptions")
+}
+
+// Tabla Payments - Registro de pagos individuales
+model Payment {
+  id                     String          @id @default(cuid())
+  
+  // Relaciones
+  organizationId         String
+  organization           Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId         String?
+  subscription           Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  
+  // Detalles del pago
+  amount                 Decimal         // Monto pagado
+  currency               String          @default("USD")
+  status                 PaymentStatus   @default(PENDING)
+  paymentProvider        PaymentProvider
+  
+  // IDs externos de los proveedores
+  stripePaymentIntentId  String?         // Payment Intent ID de Stripe
+  stripeChargeId         String?         // Charge ID de Stripe
+  mercadopagoPaymentId   String?         // Payment ID de MercadoPago
+  
+  // Detalles de facturación
+  description            String?         // Descripción del pago
+  invoiceUrl             String?         // URL de la factura
+  receiptUrl             String?         // URL del recibo
+  
+  // Fechas
+  paidAt                 DateTime?       // Fecha de pago exitoso
+  failedAt               DateTime?       // Fecha de pago fallido
+  refundedAt             DateTime?       // Fecha de reembolso
+  
+  // Información adicional
+  failureReason          String?         // Razón del fallo
+  metadata               Json?           // Información adicional
+  
+  // Control de fechas
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([stripePaymentIntentId])
+  @@index([mercadopagoPaymentId])
+  @@map("payments")
 }
 
 // Tablas requeridas para NextAuth.js
