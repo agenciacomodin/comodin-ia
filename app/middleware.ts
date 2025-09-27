@@ -62,23 +62,23 @@ const ROUTE_ACCESS_CONFIG: Record<string, {
 export default withAuth(
   function middleware(req: NextRequest & { nextauth: { token: any } }) {
     const { pathname } = req.nextUrl
-    const user = req.nextauth?.token?.user
+    const token = req.nextauth?.token
 
     // Log para debugging en desarrollo
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[Middleware] ${req.method} ${pathname} - User: ${user?.email} (${user?.role})`)
+      console.log(`[Middleware] ${req.method} ${pathname} - User: ${token?.email} (${token?.role})`)
     }
 
-    // Si no hay usuario en rutas protegidas
-    if (!user && protectedRoutes.some(route => pathname.startsWith(route))) {
+    // Si no hay token en rutas protegidas
+    if (!token && protectedRoutes.some(route => pathname.startsWith(route))) {
       const loginUrl = new URL('/auth/login', req.url)
       loginUrl.searchParams.set('callbackUrl', req.url)
       return NextResponse.redirect(loginUrl)
     }
 
-    // Si hay usuario, verificar acceso específico
-    if (user) {
-      const userRole = user.role as UserRole
+    // Si hay token, verificar acceso específico
+    if (token) {
+      const userRole = token.role as UserRole
       const accessLevel = getAccessLevel(userRole)
       
       // Verificar acceso a rutas específicas
@@ -131,9 +131,9 @@ export default withAuth(
         const response = NextResponse.next()
         
         // Agregar headers de contexto de usuario
-        response.headers.set('x-user-id', user.id)
+        response.headers.set('x-user-id', token.sub!)
         response.headers.set('x-user-role', userRole)
-        response.headers.set('x-organization-id', user.organizationId)
+        response.headers.set('x-organization-id', token.organizationId)
         response.headers.set('x-access-level', accessLevel)
         
         return response
@@ -143,7 +143,8 @@ export default withAuth(
       const orgMatch = pathname.match(/\/organizations\/([^\/]+)/)
       if (orgMatch) {
         const targetOrgId = orgMatch[1]
-        if (!canAccessOrganization(user, targetOrgId)) {
+        // Verificar si el usuario tiene acceso a esta organización
+        if (userRole !== 'SUPER_ADMIN' && token.organizationId !== targetOrgId) {
           console.log(`[Middleware] Access denied - Cannot access organization ${targetOrgId}`)
           return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
         }
