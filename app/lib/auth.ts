@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from './db'
 import bcrypt from 'bcryptjs'
 import { UserRole } from '@prisma/client'
+import { getRolePermissions } from './permissions'
 
 export interface ExtendedUser {
   id: string
@@ -16,6 +17,7 @@ export interface ExtendedUser {
   fullName?: string | null
   phone?: string | null
   country?: string | null
+  permissions?: string[]
 }
 
 declare module "next-auth" {
@@ -32,6 +34,7 @@ declare module "next-auth" {
     fullName?: string | null
     phone?: string | null
     country?: string | null
+    permissions?: string[]
   }
 }
 
@@ -42,6 +45,7 @@ declare module "next-auth/jwt" {
     fullName?: string | null
     phone?: string | null
     country?: string | null
+    permissions?: string[]
   }
 }
 
@@ -115,6 +119,7 @@ export const authOptions: NextAuthOptions = {
           fullName: user.fullName,
           phone: user.phone,
           country: user.country,
+          permissions: getRolePermissions(user.role).map(p => p.toString()),
         } as ExtendedUser
       }
     })
@@ -127,6 +132,7 @@ export const authOptions: NextAuthOptions = {
         token.fullName = user.fullName
         token.phone = user.phone
         token.country = user.country
+        token.permissions = user.permissions
       }
       return token
     },
@@ -138,6 +144,7 @@ export const authOptions: NextAuthOptions = {
         session.user.fullName = token.fullName
         session.user.phone = token.phone
         session.user.country = token.country
+        session.user.permissions = token.permissions
       }
       return session
     },

@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState } from 'react'
@@ -9,7 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Organization } from '@prisma/client'
 import { ExtendedUser } from '@/lib/auth'
 import { ConditionalRender } from '@/components/auth/conditional-render'
+import { HierarchyGuard } from '@/components/hierarchy/hierarchy-guard'
+import { RoleBadge } from '@/components/hierarchy/role-badge'
 import { Permission } from '@/lib/permissions'
+import { TeamHierarchyView } from '@/components/team/team-hierarchy-view'
 import { 
   MessageCircle, 
   Users, 
@@ -19,7 +23,10 @@ import {
   Bot,
   TrendingUp,
   UserPlus,
-  Zap
+  Zap,
+  Building2,
+  Shield,
+  Activity
 } from 'lucide-react'
 
 interface OwnerDashboardProps {
@@ -30,15 +37,77 @@ interface OwnerDashboardProps {
 export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview')
 
+  // Mock data para team members - en producción esto vendría de la API
+  const mockTeamMembers = [
+    {
+      id: user.id,
+      name: user.name || 'Propietario',
+      email: user.email,
+      role: user.role,
+      isActive: true,
+      lastLogin: new Date(),
+      organizationId: user.organizationId,
+      organizationName: organization.name
+    },
+    {
+      id: 'agent1',
+      name: 'Ana Martínez',
+      email: 'ana@empresa.com',
+      role: 'AGENTE' as const,
+      isActive: true,
+      lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000), // Hace 2 horas
+      organizationId: user.organizationId,
+      organizationName: organization.name
+    },
+    {
+      id: 'agent2',
+      name: 'Luis García',
+      email: 'luis@empresa.com',
+      role: 'AGENTE' as const,
+      isActive: true,
+      lastLogin: new Date(Date.now() - 24 * 60 * 60 * 1000), // Hace 1 día
+      organizationId: user.organizationId,
+      organizationName: organization.name
+    }
+  ]
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header mejorado con jerarquía */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          ¡Hola {user.fullName || user.name}! 👋
-        </h1>
-        <p className="text-gray-600">
-          Panel de control de <span className="font-semibold">{organization.name}</span>
-        </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <Building2 className="h-8 w-8 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                ¡Hola {user.fullName || user.name}! 👋
+              </h1>
+              <div className="flex items-center space-x-2 mt-1">
+                <RoleBadge role={user.role} size="sm" />
+                <span className="text-gray-600">de</span>
+                <span className="font-semibold">{organization.name}</span>
+                <Badge variant="outline" className="text-xs">
+                  {organization.status}
+                </Badge>
+              </div>
+            </div>
+          </div>
+          
+          <HierarchyGuard allowedRoles={['PROPIETARIO']}>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Configurar
+              </Button>
+              <Button size="sm">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Invitar Agente
+              </Button>
+            </div>
+          </HierarchyGuard>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
@@ -50,98 +119,102 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
           <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Overview Tab mejorado */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Stats Cards */}
+          {/* Stats Cards con mejor jerarquía visual */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
+            <Card className="border-l-4 border-l-green-500">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Conversaciones Activas</CardTitle>
-                <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                <MessageCircle className="h-5 w-5 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">47</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-3xl font-bold">47</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-2">
+                  <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
                   +12% desde ayer
-                </p>
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-l-4 border-l-blue-500">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Miembros del Equipo</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">8</div>
-                <p className="text-xs text-muted-foreground">
-                  2 agentes activos
-                </p>
+                <div className="text-3xl font-bold">{mockTeamMembers.length}</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-2">
+                  <Activity className="h-3 w-3 mr-1 text-blue-500" />
+                  {mockTeamMembers.filter(m => m.isActive).length} agentes activos
+                </div>
               </CardContent>
             </Card>
 
             <ConditionalRender permissions={[Permission.VIEW_BILLING]}>
-              <Card>
+              <Card className="border-l-4 border-l-yellow-500">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Plan Actual</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <DollarSign className="h-5 w-5 text-yellow-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">Growth</div>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="text-3xl font-bold">Growth</div>
+                  <div className="flex items-center text-xs text-muted-foreground mt-2">
+                    <Shield className="h-3 w-3 mr-1 text-yellow-500" />
                     $49/mes • Renovación: 15 días
-                  </p>
+                  </div>
                 </CardContent>
               </Card>
             </ConditionalRender>
 
-            <Card>
+            <Card className="border-l-4 border-l-purple-500">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Respuesta Promedio</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <TrendingUp className="h-5 w-5 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2.3m</div>
-                <p className="text-xs text-muted-foreground">
+                <div className="text-3xl font-bold">2.3m</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-2">
+                  <Activity className="h-3 w-3 mr-1 text-purple-500" />
                   -30s desde la semana pasada
-                </p>
+                </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions mejoradas */}
           <Card>
             <CardHeader>
               <CardTitle>Acciones Rápidas</CardTitle>
               <CardDescription>
-                Accede rápidamente a las funciones más importantes
+                Accede rápidamente a las funciones más importantes de tu organización
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <ConditionalRender permissions={[Permission.MANAGE_WHATSAPP_CONFIG]}>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-green-50 hover:border-green-200">
                     <MessageSquare className="h-6 w-6 text-green-600" />
                     <span className="text-sm">Configurar WhatsApp</span>
                   </Button>
                 </ConditionalRender>
                 
                 <ConditionalRender permissions={[Permission.INVITE_USERS]}>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-200">
                     <UserPlus className="h-6 w-6 text-blue-600" />
                     <span className="text-sm">Invitar Agente</span>
                   </Button>
                 </ConditionalRender>
                 
                 <ConditionalRender permissions={[Permission.CONFIGURE_AI]}>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-purple-50 hover:border-purple-200">
                     <Bot className="h-6 w-6 text-purple-600" />
                     <span className="text-sm">Configurar IA</span>
                   </Button>
                 </ConditionalRender>
                 
                 <ConditionalRender permissions={[Permission.MANAGE_ORGANIZATION]}>
-                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
+                  <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 hover:border-gray-200">
                     <Settings className="h-6 w-6 text-gray-600" />
                     <span className="text-sm">Configuración</span>
                   </Button>
@@ -222,25 +295,32 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
           </div>
         </TabsContent>
 
+        {/* Team Tab con jerarquía mejorada */}
+        <TabsContent value="team">
+          <TeamHierarchyView
+            organization={organization}
+            members={mockTeamMembers}
+            currentUserRole={user.role}
+          />
+        </TabsContent>
+
         {/* Otros tabs para desarrollo futuro */}
         <TabsContent value="conversations">
           <Card>
             <CardHeader>
               <CardTitle>Centro de Conversaciones</CardTitle>
+              <CardDescription>
+                Gestiona todas las conversaciones de WhatsApp de tu organización
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">Módulo de conversaciones en desarrollo...</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="team">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestión de Equipo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600">Gestión de equipo en desarrollo...</p>
+              <div className="text-center py-12">
+                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Módulo de conversaciones en desarrollo...</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Próximamente podrás gestionar todas las conversaciones desde aquí
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -249,9 +329,18 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
           <Card>
             <CardHeader>
               <CardTitle>Automatización e IA</CardTitle>
+              <CardDescription>
+                Configura respuestas automáticas y asistente de IA
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">Configuración de automatización en desarrollo...</p>
+              <div className="text-center py-12">
+                <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Configuración de automatización en desarrollo...</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Próximamente podrás configurar respuestas automáticas y entrenar la IA
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -259,10 +348,19 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
         <TabsContent value="settings">
           <Card>
             <CardHeader>
-              <CardTitle>Configuración</CardTitle>
+              <CardTitle>Configuración de la Organización</CardTitle>
+              <CardDescription>
+                Administra los ajustes de {organization.name}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">Panel de configuración en desarrollo...</p>
+              <div className="text-center py-12">
+                <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">Panel de configuración en desarrollo...</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Próximamente podrás configurar todos los aspectos de tu organización
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

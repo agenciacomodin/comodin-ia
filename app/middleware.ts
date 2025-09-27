@@ -1,105 +1,193 @@
 
-import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+import { withAuth } from 'next-auth/middleware'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { UserRole } from '@prisma/client'
-import { canAccessRoute, getDashboardRoute } from './lib/permissions'
+import { canAccessRoute, getDashboardRoute, Permission } from './lib/permissions'
+import { getAccessLevel, AccessLevel, canAccessOrganization } from './lib/hierarchy'
+
+// Rutas que requieren autenticación
+const protectedRoutes = [
+  '/dashboard',
+  '/conversations',
+  '/contacts',
+  '/settings',
+  '/reports',
+  '/admin',
+  '/distributor',
+  '/api/protected'
+]
+
+// Rutas públicas que no requieren autenticación
+const publicRoutes = [
+  '/',
+  '/login',
+  '/register',
+  '/api/auth',
+  '/api/health'
+]
+
+// Configuración de acceso por ruta y rol
+const ROUTE_ACCESS_CONFIG: Record<string, {
+  allowedRoles?: UserRole[]
+  requiredPermissions?: Permission[]
+  accessLevel?: AccessLevel
+}> = {
+  '/admin': {
+    allowedRoles: ['SUPER_ADMIN'],
+    accessLevel: AccessLevel.PLATFORM
+  },
+  '/distributor': {
+    allowedRoles: ['DISTRIBUIDOR'],
+    accessLevel: AccessLevel.MULTI_TENANT
+  },
+  '/dashboard': {
+    allowedRoles: ['PROPIETARIO', 'AGENTE'],
+    accessLevel: AccessLevel.ORGANIZATION
+  },
+  '/settings/organization': {
+    requiredPermissions: [Permission.MANAGE_ORGANIZATION]
+  },
+  '/settings/users': {
+    requiredPermissions: [Permission.MANAGE_USERS]
+  },
+  '/settings/billing': {
+    requiredPermissions: [Permission.VIEW_BILLING]
+  },
+  '/api/organizations': {
+    requiredPermissions: [Permission.VIEW_ALL_ORGANIZATIONS, Permission.VIEW_ORGANIZATION_SETTINGS]
+  }
+}
 
 export default withAuth(
-  function middleware(req: NextRequest & { nextauth: any }) {
-    const token = req.nextauth?.token
-    const pathname = req.nextUrl.pathname
-    const userRole = token?.role as UserRole
+  function middleware(req: NextRequest & { nextauth: { token: any } }) {
+    const { pathname } = req.nextUrl
+    const user = req.nextauth?.token?.user
 
-    // Rutas públicas que no requieren autenticación
-    const publicRoutes = ['/auth/login', '/auth/register', '/auth/organization-setup']
-    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
-    
-    // Permitir acceso a rutas públicas sin token
-    if (isPublicRoute && !token) {
-      return NextResponse.next()
+    // Log para debugging en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Middleware] ${req.method} ${pathname} - User: ${user?.email} (${user?.role})`)
     }
 
-    // Redirigir usuarios no autenticados a login
-    if (!token && !isPublicRoute) {
-      const loginUrl = new URL('/auth/login', req.url)
+    // Si no hay usuario en rutas protegidas
+    if (!user && protectedRoutes.some(route => pathname.startsWith(route))) {
+      const loginUrl = new URL('/login', req.url)
       loginUrl.searchParams.set('callbackUrl', req.url)
       return NextResponse.redirect(loginUrl)
     }
 
-    // Redirigir usuarios autenticados away de rutas de auth
-    if (token && isPublicRoute) {
-      // Redirigir al dashboard apropiado según el rol
-      const dashboardRoute = userRole ? getDashboardRoute(userRole) : '/dashboard'
-      return NextResponse.redirect(new URL(dashboardRoute, req.url))
-    }
-
-    // Validación de acceso basada en roles
-    if (token && userRole) {
-      const hasAccess = canAccessRoute(userRole, pathname)
+    // Si hay usuario, verificar acceso específico
+    if (user) {
+      const userRole = user.role as UserRole
+      const accessLevel = getAccessLevel(userRole)
       
-      if (!hasAccess) {
-        // Redirigir a la página apropiada según el rol
-        const appropriateRoute = getDashboardRoute(userRole)
-        return NextResponse.redirect(new URL(appropriateRoute, req.url))
+      // Verificar acceso a rutas específicas
+      const routeConfig = ROUTE_ACCESS_CONFIG[pathname] || 
+                         Object.entries(ROUTE_ACCESS_CONFIG).find(([route]) => 
+                           pathname.startsWith(route)
+                         )?.[1]
+
+      if (routeConfig) {
+        // Verificar roles permitidos
+        if (routeConfig.allowedRoles && !routeConfig.allowedRoles.includes(userRole)) {
+          console.log(`[Middleware] Access denied - Role ${userRole} not allowed for ${pathname}`)
+          return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+        }
+
+        // Verificar nivel de acceso
+        if (routeConfig.accessLevel) {
+          const userAccessLevel = getAccessLevel(userRole)
+          const requiredAccessLevel = routeConfig.accessLevel
+          
+          // Definir orden de niveles de acceso (menor número = menos acceso)
+          const accessLevelOrder = {
+            [AccessLevel.LIMITED]: 1,
+            [AccessLevel.ORGANIZATION]: 2,
+            [AccessLevel.MULTI_TENANT]: 3,
+            [AccessLevel.PLATFORM]: 4
+          }
+          
+          if (accessLevelOrder[userAccessLevel] < accessLevelOrder[requiredAccessLevel]) {
+            console.log(`[Middleware] Access denied - Insufficient access level for ${pathname}`)
+            return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+          }
+        }
+
+        // Verificar permisos específicos usando la función existente
+        if (!canAccessRoute(userRole, pathname)) {
+          console.log(`[Middleware] Access denied - No permission for ${pathname}`)
+          return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+        }
       }
 
-      // Redireccionamientos especiales para ciertos roles
-      if (pathname === '/' || pathname === '/dashboard') {
-        // Super Admin siempre va al panel de administración
-        if (userRole === 'SUPER_ADMIN') {
-          return NextResponse.redirect(new URL('/admin', req.url))
+      // Redirección de la raíz al dashboard apropiado
+      if (pathname === '/' || pathname === '/dashboard' && (userRole === 'SUPER_ADMIN' || userRole === 'DISTRIBUIDOR')) {
+        const targetDashboard = getDashboardRoute(userRole)
+        if (pathname !== targetDashboard) {
+          return NextResponse.redirect(new URL(targetDashboard, req.url))
         }
-        // Distribuidor va a su panel específico
-        if (userRole === 'DISTRIBUIDOR') {
-          return NextResponse.redirect(new URL('/distributor', req.url))
+      }
+
+      // Middleware específico para APIs
+      if (pathname.startsWith('/api/')) {
+        const response = NextResponse.next()
+        
+        // Agregar headers de contexto de usuario
+        response.headers.set('x-user-id', user.id)
+        response.headers.set('x-user-role', userRole)
+        response.headers.set('x-organization-id', user.organizationId)
+        response.headers.set('x-access-level', accessLevel)
+        
+        return response
+      }
+
+      // Validación de acceso a organizaciones en URLs con parámetros
+      const orgMatch = pathname.match(/\/organizations\/([^\/]+)/)
+      if (orgMatch) {
+        const targetOrgId = orgMatch[1]
+        if (!canAccessOrganization(user, targetOrgId)) {
+          console.log(`[Middleware] Access denied - Cannot access organization ${targetOrgId}`)
+          return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
         }
       }
     }
 
-    // CRITICAL: Middleware de seguridad multi-tenant
-    // Agregar información del usuario y organización a los headers
-    if (token?.organizationId) {
-      const requestHeaders = new Headers(req.headers)
-      requestHeaders.set('x-organization-id', token.organizationId)
-      requestHeaders.set('x-user-role', token.role)
-      requestHeaders.set('x-user-id', token.sub!)
-      requestHeaders.set('x-user-email', token.email || '')
-
-      return NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        }
-      })
-    }
-
+    // Continuar con la request
     return NextResponse.next()
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        const pathname = req.nextUrl.pathname
-        
-        // Permitir acceso a rutas públicas
-        const isPublicRoute = ['/auth/login', '/auth/register', '/auth/organization-setup'].some(
-          route => pathname.startsWith(route)
-        )
-        
-        if (isPublicRoute) return true
-        
-        // Requerir autenticación para todas las demás rutas
-        return !!token
+        const { pathname } = req.nextUrl
+
+        // Permitir rutas públicas sin token
+        if (publicRoutes.some(route => pathname.startsWith(route))) {
+          return true
+        }
+
+        // Requerir token para rutas protegidas
+        if (protectedRoutes.some(route => pathname.startsWith(route))) {
+          return !!token
+        }
+
+        // Por defecto, permitir acceso
+        return true
       },
     },
   }
 )
 
-// Configurar las rutas que el middleware debe procesar
+// Configuración de rutas que deben ser procesadas por el middleware
 export const config = {
   matcher: [
-    // Incluir todas las rutas excepto archivos estáticos
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|public).*)',
-    // Incluir rutas API específicas (excepto NextAuth)
-    '/api/((?!auth).*)'
-  ]
+    /*
+     * Coincidir con todas las rutas excepto:
+     * 1. /api/auth/* (rutas de autenticación de NextAuth)
+     * 2. /_next/static (archivos estáticos)
+     * 3. /_next/image (optimización de imágenes)
+     * 4. /favicon.ico (favicon)
+     * 5. Archivos estáticos (.png, .jpg, etc.)
+     */
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
