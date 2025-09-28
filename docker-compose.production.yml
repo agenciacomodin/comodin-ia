@@ -1,0 +1,118 @@
+
+version: '3.8'
+
+services:
+  # Aplicación Principal (Next.js) - USANDO SUPABASE
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    container_name: comodin_app_production
+    restart: unless-stopped
+    env_file:
+      - production.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    networks:
+      - comodin_network
+    volumes:
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Evolution API (WhatsApp Integration)
+  evolution-api:
+    image: atendai/evolution-api:latest
+    container_name: comodin_evolution_production
+    restart: unless-stopped
+    env_file:
+      - production.env
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: 8080
+      CORS_ORIGIN: 'https://crm.comodinia.com'
+      CORS_METHODS: 'GET,PUT,POST,DELETE,OPTIONS'
+      CORS_CREDENTIALS: 'true'
+      LOG_LEVEL: ERROR
+      LOG_COLOR: false
+      LOG_BAILEYS: error
+      DEL_INSTANCE: false
+      PROVIDER_ENABLED: true
+      PROVIDER_HOST: 127.0.0.1
+      PROVIDER_PORT: 5656
+      PROVIDER_PREFIX: evolution
+      DATABASE_ENABLED: false
+      REDIS_ENABLED: false
+      WEBHOOK_GLOBAL_ENABLED: true
+      WEBHOOK_GLOBAL_URL: https://crm.comodinia.com/api/webhooks/whatsapp
+      WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: true
+      CONFIG_SESSION_PHONE_CLIENT: COMODÍN IA
+      CONFIG_SESSION_PHONE_NAME: COMODÍN IA WhatsApp
+      QRCODE_LIMIT: 30
+      QRCODE_COLOR: '#198754'
+      TYPEBOT_ENABLED: false
+      CHATWOOT_ENABLED: false
+      OPENAI_ENABLED: true
+      DIFY_ENABLED: false
+      FLOWISE_ENABLED: false
+      LANGFUSE_ENABLED: false
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: true
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    ports:
+      - "8080:8080"
+    networks:
+      - comodin_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: comodin_nginx_production
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.production.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - comodin_network
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  comodin_network:
+    driver: bridge
+
+volumes:
+  app_logs:
+    driver: local
+  evolution_instances:
+    driver: local
+  evolution_store:
+    driver: local
+  nginx_logs:
+    driver: local
+
