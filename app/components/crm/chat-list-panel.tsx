@@ -3,7 +3,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Filter, MessageSquare, Phone } from 'lucide-react'
+import { Search, Filter, MessageSquare, Phone, Users, User, UserX } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +24,8 @@ import {
 } from '@/lib/types'
 import { ConversationStatus, ConversationPriority } from '@prisma/client'
 
+type AgentFilter = 'ALL' | 'MINE' | 'UNASSIGNED'
+
 interface ChatListPanelProps {
   conversations: ConversationSummary2[]
   selectedConversationId?: string
@@ -32,6 +34,7 @@ interface ChatListPanelProps {
   onSearchChange: (term: string) => void
   statusFilter: ConversationStatus | 'ALL'
   onStatusFilterChange: (status: ConversationStatus | 'ALL') => void
+  currentUserId?: string // Para saber cuáles conversaciones son "mías"
 }
 
 export function ChatListPanel({
@@ -41,8 +44,10 @@ export function ChatListPanel({
   searchTerm,
   onSearchChange,
   statusFilter,
-  onStatusFilterChange
+  onStatusFilterChange,
+  currentUserId
 }: ChatListPanelProps) {
+  const [agentFilter, setAgentFilter] = useState<AgentFilter>('ALL')
 
   const formatTime = (date?: Date) => {
     if (!date) return ''
@@ -92,7 +97,19 @@ export function ChatListPanel({
     
     const matchesStatus = statusFilter === 'ALL' || conversation.status === statusFilter
     
-    return matchesSearch && matchesStatus
+    const matchesAgent = (() => {
+      switch (agentFilter) {
+        case 'MINE':
+          return conversation.assignedAgent?.id === currentUserId
+        case 'UNASSIGNED':
+          return !conversation.assignedAgent
+        case 'ALL':
+        default:
+          return true
+      }
+    })()
+    
+    return matchesSearch && matchesStatus && matchesAgent
   })
 
   return (
@@ -124,6 +141,37 @@ export function ChatListPanel({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+        
+        {/* Filtros por agente */}
+        <div className="flex space-x-1 mb-3">
+          <Button
+            variant={agentFilter === 'ALL' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAgentFilter('ALL')}
+            className="flex items-center text-xs h-8"
+          >
+            <Users className="h-3 w-3 mr-1" />
+            Todas
+          </Button>
+          <Button
+            variant={agentFilter === 'MINE' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAgentFilter('MINE')}
+            className="flex items-center text-xs h-8"
+          >
+            <User className="h-3 w-3 mr-1" />
+            Mías
+          </Button>
+          <Button
+            variant={agentFilter === 'UNASSIGNED' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setAgentFilter('UNASSIGNED')}
+            className="flex items-center text-xs h-8"
+          >
+            <UserX className="h-3 w-3 mr-1" />
+            Sin asignar
+          </Button>
         </div>
         
         {/* Barra de búsqueda */}

@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 const navigationItems = [
   {
@@ -160,7 +161,7 @@ export function MainSidebar({ className }: MainSidebarProps) {
                   ? "bg-blue-100 text-blue-700" 
                   : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
               )}>
-                <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+                <Icon className={cn("h-5 w-5", collapsed && "h-8 w-8")} />
                 {!collapsed && (
                   <div>
                     <div>{item.name}</div>
@@ -185,7 +186,7 @@ export function MainSidebar({ className }: MainSidebarProps) {
               collapsed && "justify-center",
               pathname === '/wallet' && "bg-blue-100 text-blue-700"
             )}>
-              <Wallet className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+              <Wallet className={cn("h-5 w-5", collapsed && "h-8 w-8")} />
               {!collapsed && <span>Cartera Virtual</span>}
             </div>
           </Link>
@@ -198,10 +199,19 @@ export function MainSidebar({ className }: MainSidebarProps) {
             collapsed && "justify-center",
             pathname === '/settings' && "bg-blue-100 text-blue-700"
           )}>
-            <Settings className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+            <Settings className={cn("h-5 w-5", collapsed && "h-8 w-8")} />
             {!collapsed && <span>Configuración</span>}
           </div>
         </Link>
+
+        {/* Theme Toggle */}
+        <div className={cn(
+          "flex items-center space-x-3 px-3 py-2",
+          collapsed && "justify-center"
+        )}>
+          <ThemeToggle />
+          {!collapsed && <span className="text-sm font-medium text-gray-700">Tema</span>}
+        </div>
 
         {/* Perfil de Usuario */}
         <DropdownMenu>

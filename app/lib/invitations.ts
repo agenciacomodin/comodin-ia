@@ -88,8 +88,10 @@ export class InvitationService {
 
       const emailTemplate = getTeamInvitationTemplate(
         invitation.email,
+        'COMODÍN IA', // inviter name
         invitation.organization.name,
-        inviteUrl
+        token,
+        invitation.role
       )
 
       const emailResult = await sendEmail({
@@ -106,8 +108,7 @@ export class InvitationService {
 
       return {
         success: true,
-        invitation,
-        emailPreviewUrl: emailResult.messageUrl
+        invitation
       }
 
     } catch (error) {

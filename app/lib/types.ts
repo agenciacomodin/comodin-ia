@@ -15,8 +15,29 @@ import {
   ChunkProcessingStatus,
   IntegrationType,
   IntegrationStatus,
-  EcommercePlatform
+  EcommercePlatform,
+  CampaignType
 } from '@prisma/client'
+
+// Re-export Prisma enums for convenience
+export { 
+  UserRole,
+  OrganizationStatus,
+  ContactStatus,
+  ConversationStatus,
+  ConversationPriority,
+  MessageType,
+  MessageDirection,
+  WhatsAppConnectionType,
+  WhatsAppConnectionStatus,
+  KnowledgeSourceType,
+  KnowledgeSourceStatus,
+  ChunkProcessingStatus,
+  IntegrationType,
+  IntegrationStatus,
+  EcommercePlatform,
+  CampaignType
+}
 
 export type Expense = {
   id: string
@@ -957,12 +978,6 @@ export interface ActionBuilderItem {
 // BASE DE CONOCIMIENTO (KNOWLEDGE BASE)
 // =====================================
 
-export {
-  KnowledgeSourceType,
-  KnowledgeSourceStatus,
-  ChunkProcessingStatus
-}
-
 // Tipos para la base de conocimiento
 export interface KnowledgeSourceSummary {
   id: string
@@ -1439,7 +1454,6 @@ export interface EcommerceCustomer {
 import {
   TemplateStatus,
   CampaignStatus,
-  CampaignType,
   AudienceFilterType,
   AudienceFilterOperator,
   MessageDeliveryStatus
@@ -1448,7 +1462,6 @@ import {
 export {
   TemplateStatus,
   CampaignStatus,
-  CampaignType,
   AudienceFilterType,
   AudienceFilterOperator,
   MessageDeliveryStatus

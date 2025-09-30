@@ -3,7 +3,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Phone, Mail, Building, MapPin, Tag, Plus, Edit2, Star, Clock } from 'lucide-react'
+import { Phone, Mail, Building, MapPin, Tag, Plus, Edit2, Star, Clock, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +33,12 @@ export function ContactDetailsPanel({
   const [newTag, setNewTag] = useState('')
   const [isAddingNote, setIsAddingNote] = useState(false)
   const [isAddingTag, setIsAddingTag] = useState(false)
+  
+  // Estados para paneles desplegables
+  const [isInfoExpanded, setIsInfoExpanded] = useState(true)
+  const [isTagsExpanded, setIsTagsExpanded] = useState(true)
+  const [isStatsExpanded, setIsStatsExpanded] = useState(true)
+  const [isNotesExpanded, setIsNotesExpanded] = useState(true)
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -134,13 +140,21 @@ export function ContactDetailsPanel({
       <div className="p-4 space-y-4">
         {/* Información de contacto */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center">
-              <Building className="w-4 h-4 mr-2" />
-              Información
+          <CardHeader className="pb-3 cursor-pointer" onClick={() => setIsInfoExpanded(!isInfoExpanded)}>
+            <CardTitle className="text-sm flex items-center justify-between">
+              <div className="flex items-center">
+                <Building className="w-4 h-4 mr-2" />
+                Información
+              </div>
+              {isInfoExpanded ? (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-gray-500" />
+              )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-2">
+          {isInfoExpanded && (
+            <CardContent className="pt-0 space-y-2">
             {contact.company && (
               <div>
                 <p className="text-xs text-gray-500">Empresa</p>
@@ -171,27 +185,39 @@ export function ContactDetailsPanel({
                 <p className="text-sm">{contact.source}</p>
               </div>
             )}
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
 
         {/* Etiquetas */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsTagsExpanded(!isTagsExpanded)}>
               <CardTitle className="text-sm flex items-center">
                 <Tag className="w-4 h-4 mr-2" />
                 Etiquetas
+                {isTagsExpanded ? (
+                  <ChevronDown className="w-4 h-4 ml-auto text-gray-500" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 ml-auto text-gray-500" />
+                )}
               </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsAddingTag(true)}
-              >
-                <Plus className="w-3 h-3" />
-              </Button>
+              {isTagsExpanded && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsAddingTag(true)
+                  }}
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+              )}
             </div>
           </CardHeader>
-          <CardContent className="pt-0">
+          {isTagsExpanded && (
+            <CardContent className="pt-0">
             <div className="flex flex-wrap gap-2 mb-3">
               {contact.tags.map((tag) => (
                 <Badge 
@@ -227,18 +253,27 @@ export function ContactDetailsPanel({
                 </Button>
               </div>
             )}
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
 
         {/* Estadísticas */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center">
-              <Clock className="w-4 h-4 mr-2" />
-              Actividad
+          <CardHeader className="pb-3 cursor-pointer" onClick={() => setIsStatsExpanded(!isStatsExpanded)}>
+            <CardTitle className="text-sm flex items-center justify-between">
+              <div className="flex items-center">
+                <Clock className="w-4 h-4 mr-2" />
+                Actividad
+              </div>
+              {isStatsExpanded ? (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-gray-500" />
+              )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 space-y-3">
+          {isStatsExpanded && (
+            <CardContent className="pt-0 space-y-3">
             {contact.firstContact && (
               <div>
                 <p className="text-xs text-gray-500">Primer contacto</p>
@@ -274,27 +309,43 @@ export function ContactDetailsPanel({
                 </div>
               </div>
             )}
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
 
         {/* Notas internas */}
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">Notas Internas</CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsAddingNote(true)}
-              >
-                <Plus className="w-3 h-3" />
-              </Button>
+            <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsNotesExpanded(!isNotesExpanded)}>
+              <div>
+                <CardTitle className="text-sm flex items-center">
+                  Notas Internas
+                  {isNotesExpanded ? (
+                    <ChevronDown className="w-4 h-4 ml-2 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 ml-2 text-gray-500" />
+                  )}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Solo visibles para tu equipo
+                </CardDescription>
+              </div>
+              {isNotesExpanded && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsAddingNote(true)
+                  }}
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+              )}
             </div>
-            <CardDescription className="text-xs">
-              Solo visibles para tu equipo
-            </CardDescription>
           </CardHeader>
-          <CardContent className="pt-0">
+          {isNotesExpanded && (
+            <CardContent className="pt-0">
             {/* Agregar nueva nota */}
             {isAddingNote && (
               <div className="mb-4 p-3 border rounded-lg bg-gray-50">
@@ -346,7 +397,8 @@ export function ContactDetailsPanel({
                 ))
               )}
             </div>
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
       </div>
     </div>

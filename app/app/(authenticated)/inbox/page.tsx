@@ -363,6 +363,7 @@ export default function InboxPage() {
           onSearchChange={setSearchTerm}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          currentUserId={session?.user?.id}
         />
 
         {/* Panel central - Conversación activa */}
