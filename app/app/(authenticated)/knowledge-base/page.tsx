@@ -46,6 +46,7 @@ import {
 import { KnowledgeUploader } from '@/components/knowledge/knowledge-uploader'
 import { KnowledgeSourcesTable } from '@/components/knowledge/knowledge-sources-table'
 import { KnowledgeStatsWidget } from '@/components/knowledge/knowledge-stats-widget'
+import { RAGAgentsManager } from '@/components/rag-agents/rag-agents-manager'
 
 export default function KnowledgeBasePage() {
   const { data: session } = useSession() || {}
@@ -343,9 +344,9 @@ export default function KnowledgeBasePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Base de Conocimiento</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Base de Conocimiento Avanzada</h1>
           <p className="text-gray-600 mt-1">
-            Entrena tu IA con documentos, páginas web y contenido específico de tu negocio
+            Sistema inteligente de múltiples agentes RAG especializados con diferentes proveedores de IA
           </p>
         </div>
         
@@ -409,14 +410,26 @@ export default function KnowledgeBasePage() {
         </div>
       </div>
 
-      {/* Estadísticas */}
-      {stats && <KnowledgeStatsWidget stats={stats} />}
+      {/* Sistema de Tabs */}
+      <Tabs defaultValue="agents" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="agents">Agentes RAG Inteligentes</TabsTrigger>
+          <TabsTrigger value="sources">Fuentes de Conocimiento</TabsTrigger>
+        </TabsList>
 
-      {/* Filtros y búsqueda */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Fuentes de Conocimiento</CardTitle>
-        </CardHeader>
+        <TabsContent value="agents" className="space-y-6">
+          <RAGAgentsManager />
+        </TabsContent>
+
+        <TabsContent value="sources" className="space-y-6">
+          {/* Estadísticas */}
+          {stats && <KnowledgeStatsWidget stats={stats} />}
+
+          {/* Filtros y búsqueda */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Fuentes de Conocimiento</CardTitle>
+            </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-6">
             <div className="flex-1">
@@ -584,6 +597,8 @@ export default function KnowledgeBasePage() {
           </div>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

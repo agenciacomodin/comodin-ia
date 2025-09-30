@@ -20,7 +20,13 @@ import {
   FollowUpStatus,
   FollowUpTriggerType,
   FollowUpChannel,
-  TimeUnit
+  TimeUnit,
+  AIProviderType,
+  RAGAgentType,
+  RAGAgentStatus,
+  SupportTicketStatus,
+  SupportTicketPriority,
+  SupportServiceType
 } from '@prisma/client'
 
 // Re-export Prisma enums for convenience
@@ -44,7 +50,13 @@ export {
   FollowUpStatus,
   FollowUpTriggerType,
   FollowUpChannel,
-  TimeUnit
+  TimeUnit,
+  AIProviderType,
+  RAGAgentType,
+  RAGAgentStatus,
+  SupportTicketStatus,
+  SupportTicketPriority,
+  SupportServiceType
 }
 
 export type Expense = {

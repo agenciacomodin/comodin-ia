@@ -157,6 +157,14 @@ model Organization {
   campaigns            Campaign[]
   campaignPreviews     CampaignAudiencePreview[]
   
+  // Sistema de Agentes RAG Avanzado
+  ragAgents            RAGAgent[]
+  ragAgentConversations RAGAgentConversation[]
+  ragAgentMessages     RAGAgentMessage[]
+  
+  // Sistema de Servicios Extras y Soporte Técnico
+  supportTickets       SupportTicket[]
+  
   @@map("organizations")
 }
 
@@ -1523,6 +1531,7 @@ model KnowledgeSource {
   
   // Relaciones
   chunks           KnowledgeChunk[]      // Chunks de contenido
+  ragAgents        RAGAgentKnowledgeBase[] // Agentes RAG que usan esta fuente
   
   @@index([organizationId])
   @@index([status])
@@ -1686,7 +1695,59 @@ enum IntegrationType {
   ANALYTICS      // Herramientas de análisis
   MARKETING      // Plataformas de marketing
   SOCIAL_MEDIA   // Redes sociales
+  EMAIL          // Email marketing
+  SUPPORT        // Tickets de soporte
   OTHER          // Otras integraciones
+}
+
+enum AIProviderType {
+  OPENAI         // GPT-3.5, GPT-4
+  ANTHROPIC      // Claude
+  GOOGLE         // Gemini, Bard
+  COHERE         // Cohere AI
+  HUGGING_FACE   // Hugging Face Models
+  LOCAL          // Modelos locales
+  CUSTOM         // API personalizada
+}
+
+enum RAGAgentType {
+  COORDINATOR    // Agente coordinador principal
+  SALES          // Agente especializado en ventas
+  SUPPORT        // Agente especializado en soporte
+  TECHNICAL      // Agente especializado técnico
+  MARKETING      // Agente especializado en marketing
+  GENERAL        // Agente de propósito general
+  CUSTOM         // Agente personalizado
+}
+
+enum RAGAgentStatus {
+  ACTIVE         // Agente activo
+  INACTIVE       // Agente inactivo
+  TRAINING       // Agente en entrenamiento
+  ERROR          // Agente con error
+}
+
+enum SupportTicketStatus {
+  OPEN           // Ticket abierto
+  IN_PROGRESS    // En progreso
+  PENDING_CLIENT // Esperando respuesta del cliente
+  RESOLVED       // Resuelto
+  CLOSED         // Cerrado
+}
+
+enum SupportTicketPriority {
+  LOW            // Baja prioridad
+  MEDIUM         // Prioridad media
+  HIGH           // Alta prioridad
+  CRITICAL       // Crítico
+}
+
+enum SupportServiceType {
+  INTEGRATION_SUPPORT    // Soporte para integraciones
+  TECHNICAL_SOLUTION     // Solución técnica
+  CONFIGURATION_HELP     // Ayuda con configuración
+  TRAINING               // Entrenamiento
+  CUSTOM_DEVELOPMENT     // Desarrollo personalizado
 }
 
 enum IntegrationStatus {
@@ -2251,4 +2312,327 @@ enum QRSessionStatus {
   AUTHENTICATED // Usuario autenticado exitosamente
   EXPIRED       // Sesión expirada
   CANCELLED     // Sesión cancelada
+}
+
+// ============================================
+// SISTEMA DE AGENTES RAG AVANZADO
+// ============================================
+
+// Agentes RAG especializados por organización
+model RAGAgent {
+  id              String           @id @default(cuid())
+  
+  // Relación con organización
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica del agente
+  name            String           // Nombre del agente
+  description     String?          // Descripción del agente
+  type            RAGAgentType     // Tipo de agente
+  status          RAGAgentStatus   @default(ACTIVE)
+  
+  // Configuración de IA
+  aiProvider      AIProviderType   // Proveedor de IA
+  aiModel         String           // Modelo específico (ej: "gpt-4", "claude-3")
+  aiConfiguration Json?            // Configuración específica del modelo
+  
+  // Configuración del agente
+  systemPrompt    String?          // Prompt del sistema
+  maxTokens       Int?             @default(2000) // Máximo de tokens
+  temperature     Float?           @default(0.7) // Temperatura
+  topP            Float?           @default(1.0) // Top-P
+  
+  // Especialización y capacidades
+  specializations Json?            // Especializaciones del agente
+  capabilities    Json?            // Capacidades específicas
+  restrictions    Json?            // Restricciones del agente
+  
+  // Configuración de enrutamiento
+  isCoordinator   Boolean          @default(false) // Si es agente coordinador
+  priority        Int              @default(1) // Prioridad en el enrutamiento
+  routingRules    Json?            // Reglas de enrutamiento
+  
+  // Configuración de conocimiento
+  knowledgeSourceIds Json?         // IDs de fuentes de conocimiento asignadas
+  embeddingSettings  Json?         // Configuración de embeddings
+  retrievalSettings  Json?         // Configuración de retrieval
+  
+  // Configuración de integraciones
+  integrationAccess Json?          // Integraciones que puede usar
+  
+  // Métricas y estadísticas
+  totalConversations  Int          @default(0) // Total de conversaciones
+  totalMessages      Int           @default(0) // Total de mensajes
+  averageRating      Float?        // Rating promedio
+  lastUsedAt         DateTime?     // Última vez usado
+  
+  // Control de fechas
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relaciones
+  conversations   RAGAgentConversation[]
+  messages        RAGAgentMessage[]
+  knowledgeBases  RAGAgentKnowledgeBase[]
+  
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([type])
+  @@index([status])
+  @@index([isCoordinator])
+  @@map("rag_agents")
+}
+
+// Relación entre agentes y fuentes de conocimiento
+model RAGAgentKnowledgeBase {
+  id                String          @id @default(cuid())
+  
+  // Relaciones
+  agentId           String
+  agent             RAGAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeSourceId String
+  knowledgeSource   KnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+  
+  // Configuración específica para este agente
+  priority          Int             @default(1) // Prioridad de esta fuente para el agente
+  isActive          Boolean         @default(true) // Si está activa para el agente
+  customSettings    Json?           // Configuraciones personalizadas
+  
+  // Control de fechas
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@unique([agentId, knowledgeSourceId])
+  @@index([agentId])
+  @@index([knowledgeSourceId])
+  @@map("rag_agent_knowledge_bases")
+}
+
+// Conversaciones específicas de agentes RAG
+model RAGAgentConversation {
+  id              String           @id @default(cuid())
+  
+  // Relaciones
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentId         String
+  agent           RAGAgent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId  String?          // ID de conversación principal (CRM)
+  conversation    Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  
+  // Información de la conversación
+  title           String?          // Título de la conversación
+  summary         String?          // Resumen de la conversación
+  status          ConversationStatus @default(OPEN)
+  
+  // Contexto y estado
+  contextHistory  Json?            // Historial de contexto
+  lastContext     Json?            // Último contexto usado
+  
+  // Métricas
+  totalMessages   Int              @default(0)
+  totalTokens     Int              @default(0)
+  rating          Int?             // Rating de la conversación (1-5)
+  feedback        String?          // Feedback del usuario
+  
+  // Control de fechas
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relaciones
+  messages        RAGAgentMessage[]
+  
+  @@index([organizationId])
+  @@index([agentId])
+  @@index([conversationId])
+  @@index([status])
+  @@map("rag_agent_conversations")
+}
+
+// Mensajes de agentes RAG
+model RAGAgentMessage {
+  id                String                  @id @default(cuid())
+  
+  // Relaciones
+  organizationId    String
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentId           String
+  agent             RAGAgent                @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId    String
+  conversation      RAGAgentConversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Contenido del mensaje
+  content           String                  // Contenido del mensaje
+  role              String                  // "user", "assistant", "system"
+  
+  // Información de procesamiento RAG
+  retrievedChunks   Json?                   // Chunks recuperados de la base de conocimiento
+  contextUsed       Json?                   // Contexto usado para generar la respuesta
+  sourcesUsed       Json?                   // Fuentes de conocimiento usadas
+  
+  // Métricas de IA
+  promptTokens      Int?                    // Tokens del prompt
+  completionTokens  Int?                    // Tokens de la respuesta
+  totalTokens       Int?                    // Total de tokens
+  processingTime    Int?                    // Tiempo de procesamiento en ms
+  
+  // Calidad y feedback
+  confidence        Float?                  // Confianza en la respuesta (0-1)
+  relevance         Float?                  // Relevancia del contenido (0-1)
+  rating            Int?                    // Rating del usuario (1-5)
+  
+  // Control de fechas
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  @@index([organizationId])
+  @@index([agentId])
+  @@index([conversationId])
+  @@index([role])
+  @@index([createdAt])
+  @@map("rag_agent_messages")
+}
+
+// ============================================
+// SISTEMA DE SERVICIOS EXTRAS Y SOPORTE TÉCNICO
+// ============================================
+
+// Servicios adicionales disponibles
+model ExtraService {
+  id              String              @id @default(cuid())
+  
+  // Información del servicio
+  name            String              // Nombre del servicio
+  displayName     String              // Nombre para mostrar
+  description     String              // Descripción detallada
+  type            SupportServiceType  // Tipo de servicio
+  
+  // Configuración de precios
+  price           Float               // Precio del servicio
+  currency        String              @default("USD")
+  billingType     String              @default("one_time") // "one_time", "recurring"
+  
+  // Configuración del servicio
+  estimatedHours  Int?                // Horas estimadas
+  deliveryDays    Int?                // Días de entrega estimados
+  requirements    Json?               // Requisitos del servicio
+  deliverables    Json?               // Entregables del servicio
+  
+  // Disponibilidad
+  isActive        Boolean             @default(true)
+  maxConcurrent   Int?                // Máximo de servicios concurrentes
+  
+  // Metadatos
+  tags            Json?               // Etiquetas del servicio
+  skillsRequired  Json?               // Habilidades requeridas
+  
+  // Control de fechas
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relaciones
+  tickets         SupportTicket[]
+  
+  @@unique([name])
+  @@index([type])
+  @@index([isActive])
+  @@map("extra_services")
+}
+
+// Tickets de soporte técnico
+model SupportTicket {
+  id                String                  @id @default(cuid())
+  
+  // Relaciones
+  organizationId    String
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceId         String?
+  service           ExtraService?           @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  
+  // Información básica del ticket
+  title             String                  // Título del ticket
+  description       String                  // Descripción detallada
+  type              SupportServiceType      // Tipo de servicio solicitado
+  status            SupportTicketStatus     @default(OPEN)
+  priority          SupportTicketPriority   @default(MEDIUM)
+  
+  // Información del cliente
+  clientName        String                  // Nombre del cliente
+  clientEmail       String                  // Email del cliente
+  clientPhone       String?                 // Teléfono del cliente
+  clientCompany     String?                 // Empresa del cliente
+  
+  // Detalles técnicos
+  technicalDetails  Json?                   // Detalles técnicos específicos
+  systemInfo        Json?                   // Información del sistema
+  errorLogs         Json?                   // Logs de errores
+  screenshots       Json?                   // URLs de capturas de pantalla
+  attachments       Json?                   // Archivos adjuntos
+  
+  // Asignación y seguimiento
+  assignedTo        String?                 // ID del técnico asignado
+  assignedAt        DateTime?               // Fecha de asignación
+  estimatedHours    Int?                    // Horas estimadas
+  hoursWorked       Float?                  @default(0) // Horas trabajadas
+  
+  // Facturación
+  quotePrice        Float?                  // Precio cotizado
+  finalPrice        Float?                  // Precio final
+  currency          String?                 @default("USD")
+  invoiced          Boolean                 @default(false)
+  paid              Boolean                 @default(false)
+  
+  // Fechas importantes
+  dueDate           DateTime?               // Fecha límite
+  resolvedAt        DateTime?               // Fecha de resolución
+  closedAt          DateTime?               // Fecha de cierre
+  
+  // Control de fechas
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  // Relaciones
+  updates           SupportTicketUpdate[]
+  
+  @@index([organizationId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+// Actualizaciones de tickets de soporte
+model SupportTicketUpdate {
+  id              String                  @id @default(cuid())
+  
+  // Relaciones
+  ticketId        String
+  ticket          SupportTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  // Información de la actualización
+  message         String                  // Mensaje de la actualización
+  type            String                  // Tipo de actualización ("comment", "status_change", "assignment", etc.)
+  isInternal      Boolean                 @default(false) // Si es comentario interno
+  
+  // Información del autor
+  authorType      String                  // "client", "technician", "system"
+  authorId        String?                 // ID del autor (si aplica)
+  authorName      String                  // Nombre del autor
+  authorEmail     String?                 // Email del autor
+  
+  // Datos adicionales
+  metadata        Json?                   // Metadatos adicionales
+  attachments     Json?                   // Archivos adjuntos
+  
+  // Control de fechas
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  
+  @@index([ticketId])
+  @@index([authorType])
+  @@index([createdAt])
+  @@map("support_ticket_updates")
 }

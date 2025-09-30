@@ -21,7 +21,8 @@ import {
   Wallet,
   Bot,
   TestTube2,
-  Clock
+  Clock,
+  Plug
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -57,6 +58,11 @@ const navigationItems = [
     name: 'Entrenar IA',
     href: '/knowledge-base',
     icon: BookOpen
+  },
+  {
+    name: 'Integraciones',
+    href: '/integrations',
+    icon: Plug
   },
   {
     name: 'Seguimientos',
