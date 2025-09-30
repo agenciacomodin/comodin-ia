@@ -115,12 +115,12 @@ export async function POST(request: NextRequest) {
     const savedMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
-        senderId: session.user.id,
+        organizationId: conversation.organizationId,
+        sentBy: session.user.id,
         content: type === 'text' ? message : `[${type.toUpperCase()}] ${message.filename || message.caption || 'Archivo'}`,
-        type: type.toUpperCase(),
+        type: type.toUpperCase() as any,
         direction: 'OUTGOING',
-        status: 'SENT',
-        whatsappMessageId: result.messageId,
+        whatsappId: result.messageId,
         sentAt: new Date()
       }
     })

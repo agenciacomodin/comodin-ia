@@ -23,41 +23,48 @@ export async function GET(
 
     const fileId = params.id
 
-    // Buscar archivo en la base de datos
-    const file = await prisma.file.findFirst({
-      where: {
-        id: fileId,
-        organizationId: session.user.organizationId,
-        status: 'ACTIVE'
-      }
-    })
+    // TODO: Buscar archivo en la base de datos cuando se implemente el modelo File
+    // const file = await prisma.file.findFirst({
+    //   where: {
+    //     id: fileId,
+    //     organizationId: session.user.organizationId,
+    //     status: 'ACTIVE'
+    //   }
+    // })
 
-    if (!file) {
-      return NextResponse.json(
-        { success: false, error: 'Archivo no encontrado' },
-        { status: 404 }
-      )
-    }
+    // if (!file) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Archivo no encontrado' },
+    //     { status: 404 }
+    //   )
+    // }
 
-    // Generar URL firmada
-    const signedUrl = await StorageService.getSignedUrl(file.path, 3600) // 1 hora
+    // Por ahora, retornar error ya que no hay modelo File
+    return NextResponse.json(
+      { success: false, error: 'Funcionalidad de archivos temporalmente deshabilitada' },
+      { status: 501 }
+    )
 
-    if (!signedUrl) {
-      return NextResponse.json(
-        { success: false, error: 'Error generando URL de descarga' },
-        { status: 500 }
-      )
-    }
+    // TODO: Descomentar cuando se implemente el modelo File
+    // // Generar URL firmada
+    // const signedUrl = await StorageService.getSignedUrl(file.path, 3600) // 1 hora
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        downloadUrl: signedUrl,
-        fileName: file.originalName,
-        size: file.size,
-        type: file.mimeType
-      }
-    })
+    // if (!signedUrl) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Error generando URL de descarga' },
+    //     { status: 500 }
+    //   )
+    // }
+
+    // return NextResponse.json({
+    //   success: true,
+    //   data: {
+    //     downloadUrl: signedUrl,
+    //     fileName: file.originalName,
+    //     size: file.size,
+    //     type: file.mimeType
+    //   }
+    // })
   } catch (error) {
     console.error('Error getting download URL:', error)
     return NextResponse.json(

@@ -138,12 +138,12 @@ export async function POST(request: NextRequest) {
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
-        senderId: session.user.id,
+        organizationId: conversation.organizationId,
+        sentBy: session.user.id,
         content: message,
-        type: type,
+        type: type as any,
         direction: 'OUTGOING',
-        status: 'SENT',
-        whatsappMessageId: result.key?.id,
+        whatsappId: result.key?.id,
         metadata: {
           whatsapp: {
             instance: instanceName,

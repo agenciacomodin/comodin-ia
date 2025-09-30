@@ -124,12 +124,11 @@ async function processIncomingMessages(messages: any[], organizationId: string) 
       await prisma.message.create({
         data: {
           conversationId: conversation.id,
-          senderId: contact.id,
+          organizationId: conversation.organizationId,
           content: messageContent,
           type: 'TEXT',
           direction: 'INCOMING',
-          status: 'DELIVERED',
-          whatsappMessageId: messageId,
+          whatsappId: messageId,
           metadata: {
             whatsapp: {
               instance: message.instance,

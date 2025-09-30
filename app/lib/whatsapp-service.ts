@@ -208,40 +208,47 @@ export class WhatsAppService {
         }
       })
 
-      // Buscar o crear conversación
-      const conversation = await prisma.conversation.upsert({
+      // Buscar conversación existente
+      let conversation = await prisma.conversation.findFirst({
         where: {
-          organizationId_contactId: {
-            organizationId,
-            contactId: contact.id
-          }
-        },
-        update: {
-          lastMessageAt: timestamp,
-          unreadCount: {
-            increment: 1
-          }
-        },
-        create: {
           organizationId,
-          contactId: contact.id,
-          channel: 'WHATSAPP',
-          status: 'OPEN',
-          lastMessageAt: timestamp,
-          unreadCount: 1
+          contactId: contact.id
         }
       })
+
+      // Crear conversación si no existe
+      if (!conversation) {
+        conversation = await prisma.conversation.create({
+          data: {
+            organizationId,
+            contactId: contact.id,
+            status: 'OPEN',
+            lastMessageAt: timestamp,
+            unreadCount: 1
+          }
+        })
+      } else {
+        // Actualizar conversación existente
+        conversation = await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            lastMessageAt: timestamp,
+            unreadCount: {
+              increment: 1
+            }
+          }
+        })
+      }
 
       // Crear mensaje
       await prisma.message.create({
         data: {
           conversationId: conversation.id,
-          senderId: contact.id,
           content: messageText,
-          type: messageType,
+          type: messageType as any,
           direction: 'INCOMING',
-          status: 'DELIVERED',
-          whatsappMessageId: messageId,
+          organizationId,
+          whatsappId: messageId,
           metadata: {
             whatsapp: {
               timestamp: message.timestamp,

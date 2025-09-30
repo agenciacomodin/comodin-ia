@@ -126,12 +126,11 @@ export async function POST(request: NextRequest) {
     const message = await prisma.message.create({
       data: {
         conversationId: conversation.id,
-        sentBy: contact.id,
         content: messageContent,
-        type: type.toUpperCase(),
+        type: type.toUpperCase() as any,
         direction: 'INCOMING',
         organizationId,
-        whatsappMessageId: messageId,
+        whatsappId: messageId,
         metadata: messageMetadata,
         sentAt: messageTimestamp
       }
@@ -237,7 +236,7 @@ async function triggerAutomations(conversationId: string, messageId: string, org
       if (shouldTrigger) {
         // Ejecutar las acciones de la regla
         for (const action of rule.actions) {
-          await executeAutomationAction(action, conversationId, messageId)
+          await executeAutomationAction(action, conversationId, messageId, rule.organizationId, rule.id)
         }
         
         // Actualizar estadísticas de la regla
@@ -259,7 +258,7 @@ async function triggerAutomations(conversationId: string, messageId: string, org
 /**
  * Ejecuta una acción de automatización
  */
-async function executeAutomationAction(action: any, conversationId: string, messageId: string) {
+async function executeAutomationAction(action: any, conversationId: string, messageId: string, organizationId: string, ruleId?: string) {
   try {
     switch (action.type) {
       case 'AUTO_REPLY':
@@ -307,16 +306,17 @@ async function executeAutomationAction(action: any, conversationId: string, mess
             // Buscar o crear el tag
             const tag = await prisma.contactTag.upsert({
               where: {
-                organizationId_name: {
-                  organizationId: rule.organizationId,
-                  name: actionData.tagName
+                contactId_name: {
+                  contactId: conversation.contact.id,
+                  name: action.data.tagName
                 }
               },
               update: {},
               create: {
-                organizationId: rule.organizationId,
-                name: actionData.tagName,
-                color: actionData.tagColor || '#3B82F6'
+                organizationId: organizationId,
+                contactId: conversation.contact.id,
+                name: action.data.tagName,
+                color: action.data.tagColor || '#3B82F6'
               }
             })
 
@@ -334,46 +334,40 @@ async function executeAutomationAction(action: any, conversationId: string, mess
         break
 
       case 'ASSIGN_AGENT':
-        if (actionData.agentId) {
+        if (action.data.agentId) {
           await prisma.conversation.update({
             where: { id: conversationId },
-            data: { assignedToId: actionData.agentId }
+            data: { assignedAgentId: action.data.agentId }
           })
         }
         break
     }
 
     // Registrar la ejecución de la automatización
-    await prisma.automationExecution.create({
-      data: {
-        ruleId: rule.id,
-        conversationId,
-        messageId,
-        status: 'SUCCESS',
-        executedAt: new Date(),
-        metadata: {
-          action,
-          actionData
+    if (ruleId) {
+      await prisma.automationExecution.create({
+        data: {
+          ruleId,
+          conversationId,
+          messageId,
+          success: true
         }
-      }
-    })
+      })
+    }
   } catch (error) {
     console.error('Error executing automation action:', error)
     
     // Registrar el error
-    await prisma.automationExecution.create({
-      data: {
-        ruleId: rule.id,
-        conversationId,
-        messageId,
-        status: 'ERROR',
-        executedAt: new Date(),
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        metadata: {
-          action: rule.action,
-          actionData: rule.actionData
+    if (ruleId) {
+      await prisma.automationExecution.create({
+        data: {
+          ruleId,
+          conversationId,
+          messageId,
+          success: false,
+          error: error instanceof Error ? error.message : 'Error desconocido'
         }
-      }
-    })
+      })
+    }
   }
 }
