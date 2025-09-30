@@ -249,7 +249,20 @@ export function QRCodeDisplay({ onSwitchToCredentials }: QRCodeDisplayProps) {
           </Button>
         )}
 
-        <div className="pt-4 border-t">
+        <div className="pt-4 border-t space-y-2">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">
+              ¿Estás en un dispositivo móvil?
+            </p>
+            <Button 
+              variant="outline" 
+              className="w-full text-sm mb-2"
+              onClick={() => window.open('/auth/qr', '_blank')}
+            >
+              <Smartphone className="mr-2 h-4 w-4" />
+              Abrir escáner móvil
+            </Button>
+          </div>
           <Button 
             variant="ghost" 
             className="w-full text-sm"

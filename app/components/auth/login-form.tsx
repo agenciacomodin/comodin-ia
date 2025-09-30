@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { Loader2, Mail, Lock, AlertCircle, Smartphone, User } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { QRCodeDisplay } from './qr-code-display'
 
 export function LoginForm() {
   const [email, setEmail] = useState('')
@@ -159,15 +160,8 @@ export function LoginForm() {
       )}
 
       {activeTab === 'qr' && (
-        <div className="mt-6 text-center p-8">
-          <div className="text-lg font-medium mb-4">Código QR (En desarrollo)</div>
-          <p className="text-gray-600 mb-4">Esta funcionalidad estará disponible próximamente.</p>
-          <Button 
-            variant="outline" 
-            onClick={() => setActiveTab('credentials')}
-          >
-            Usar credenciales por ahora
-          </Button>
+        <div className="mt-6">
+          <QRCodeDisplay onSwitchToCredentials={() => setActiveTab('credentials')} />
         </div>
       )}
     </div>
