@@ -189,7 +189,17 @@ async function main() {
   for (const integration of integrations) {
     await prisma.integration.upsert({
       where: { name: integration.name },
-      update: integration,
+      update: {
+        displayName: integration.displayName,
+        description: integration.description,
+        type: integration.type,
+        platform: integration.platform,
+        authType: integration.authType,
+        authFields: integration.authFields,
+        supportedFeatures: integration.supportedFeatures,
+        brandColor: integration.brandColor,
+        documentation: integration.documentation
+      },
       create: integration
     })
   }
@@ -324,7 +334,19 @@ async function main() {
   for (const service of extraServices) {
     await prisma.extraService.upsert({
       where: { name: service.name },
-      update: service,
+      update: {
+        displayName: service.displayName,
+        description: service.description,
+        type: service.type,
+        price: service.price,
+        currency: service.currency,
+        estimatedHours: service.estimatedHours,
+        deliveryDays: service.deliveryDays,
+        requirements: service.requirements,
+        deliverables: service.deliverables,
+        tags: service.tags,
+        skillsRequired: service.skillsRequired
+      },
       create: service
     })
   }
