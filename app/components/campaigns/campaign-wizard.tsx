@@ -37,10 +37,13 @@ import {
   AudienceFilter,
   AudiencePreview,
   CAMPAIGN_TYPE_LABELS,
+  CAMPAIGN_TYPE_DESCRIPTIONS,
   DEFAULT_CAMPAIGN_CONFIG,
+  WHATSAPP_CAMPAIGN_CONFIG,
   AUDIENCE_FILTER_TYPE_LABELS
 } from '@/lib/types'
 import AudienceBuilder from './audience-builder'
+import { WhatsAppCampaignSelector } from './whatsapp-campaign-selector'
 
 interface CampaignWizardProps {
   onCampaignCreated?: (campaignId: string) => void
@@ -193,6 +196,23 @@ export default function CampaignWizard({ onCampaignCreated }: CampaignWizardProp
     try {
       setCreating(true)
 
+      // Aplicar configuraciones específicas de WhatsApp
+      let sendRate = campaignData.sendRate || DEFAULT_CAMPAIGN_CONFIG.SEND_RATE
+      let batchSize = campaignData.batchSize || DEFAULT_CAMPAIGN_CONFIG.BATCH_SIZE
+      let maxRecipients = campaignData.maxRecipients
+
+      if (campaignData.type === 'WHATSAPP_BUSINESS') {
+        sendRate = WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.SEND_RATE
+        batchSize = WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.BATCH_SIZE
+        // Aplicar límite de 40 mensajes diarios si no se especifica uno menor
+        if (!maxRecipients || maxRecipients > WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.MAX_DAILY_MESSAGES) {
+          maxRecipients = WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.MAX_DAILY_MESSAGES
+        }
+      } else if (campaignData.type === 'WHATSAPP_API') {
+        sendRate = WHATSAPP_CAMPAIGN_CONFIG.API.SEND_RATE
+        batchSize = WHATSAPP_CAMPAIGN_CONFIG.API.BATCH_SIZE
+      }
+
       const campaignRequest: CreateCampaignRequest = {
         name: campaignData.name!,
         description: campaignData.description,
@@ -200,11 +220,11 @@ export default function CampaignWizard({ onCampaignCreated }: CampaignWizardProp
         templateId: selectedTemplate.id,
         messageVariables: campaignData.messageVariables || {},
         audienceFilters,
-        maxRecipients: campaignData.maxRecipients,
+        maxRecipients,
         scheduledFor: campaignData.scheduledFor ? new Date(campaignData.scheduledFor) : undefined,
         timezone: campaignData.timezone || 'America/Mexico_City',
-        sendRate: campaignData.sendRate || DEFAULT_CAMPAIGN_CONFIG.SEND_RATE,
-        batchSize: campaignData.batchSize || DEFAULT_CAMPAIGN_CONFIG.BATCH_SIZE,
+        sendRate,
+        batchSize,
         budgetLimit: campaignData.budgetLimit
       }
 
@@ -582,9 +602,72 @@ function BasicInfoStep({ data, onChange, errors }: BasicInfoStepProps) {
                   </div>
                 </div>
               </SelectItem>
+              <SelectItem value="WHATSAPP_BUSINESS">
+                <div className="space-y-1">
+                  <div className="font-medium">{CAMPAIGN_TYPE_LABELS.WHATSAPP_BUSINESS}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Máximo 40 mensajes/día, cualquier contenido
+                  </div>
+                </div>
+              </SelectItem>
+              <SelectItem value="WHATSAPP_API">
+                <div className="space-y-1">
+                  <div className="font-medium">{CAMPAIGN_TYPE_LABELS.WHATSAPP_API}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Envío ilimitado, solo plantillas verificadas
+                  </div>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Información específica para WhatsApp */}
+        {(data.type === 'WHATSAPP_BUSINESS' || data.type === 'WHATSAPP_API') && (
+          <div className="rounded-lg border bg-gradient-to-r from-green-50 to-blue-50 p-4">
+            <h4 className="font-medium text-gray-900 mb-2">
+              {data.type === 'WHATSAPP_BUSINESS' ? 'WhatsApp Business' : 'WhatsApp API'} - Características
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">Límite diario:</span>
+                  <Badge variant={data.type === 'WHATSAPP_BUSINESS' ? 'destructive' : 'default'}>
+                    {data.type === 'WHATSAPP_BUSINESS' ? '40 mensajes' : 'Ilimitado'}
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">Plantillas:</span>
+                  <Badge variant={data.type === 'WHATSAPP_BUSINESS' ? 'default' : 'outline'}>
+                    {data.type === 'WHATSAPP_BUSINESS' ? 'No requeridas' : 'Solo verificadas'}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">Velocidad:</span>
+                  <span className="text-gray-600">
+                    {data.type === 'WHATSAPP_BUSINESS' ? '2 msg/min' : '50 msg/min'}
+                  </span>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="font-medium">Multimedia:</span>
+                  <span className="text-green-600">✓ Soportado</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-3 p-3 bg-white/50 rounded border border-gray-200">
+              <p className="text-xs text-gray-600">
+                <strong>Recomendación:</strong> {CAMPAIGN_TYPE_DESCRIPTIONS[data.type as keyof typeof CAMPAIGN_TYPE_DESCRIPTIONS]}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-2">
           <Label htmlFor="max-recipients">Límite máximo de destinatarios (opcional)</Label>

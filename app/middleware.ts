@@ -3,7 +3,7 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { UserRole } from '@prisma/client'
-import { canAccessRoute, getDashboardRoute, Permission } from './lib/permissions'
+import { canAccessRoute, getDashboardRoute, Permission, getRolePermissions } from './lib/permissions'
 import { getAccessLevel, AccessLevel, canAccessOrganization } from './lib/hierarchy'
 
 // Rutas que requieren autenticación
@@ -114,7 +114,8 @@ export default withAuth(
         }
 
         // Verificar permisos específicos usando la función existente
-        if (!canAccessRoute(userRole, pathname)) {
+        const userPermissions = getRolePermissions(userRole)
+        if (!canAccessRoute(userPermissions, pathname)) {
           console.log(`[Middleware] Access denied - No permission for ${pathname}`)
           return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
         }

@@ -1639,10 +1639,12 @@ enum CampaignStatus {
 }
 
 enum CampaignType {
-  IMMEDIATE     // Envío inmediato
-  SCHEDULED     // Envío programado
-  DRIP          // Campaña goteada (secuencial)
-  AB_TEST       // Prueba A/B
+  IMMEDIATE       // Envío inmediato
+  SCHEDULED       // Envío programado
+  DRIP            // Campaña goteada (secuencial)
+  AB_TEST         // Prueba A/B
+  WHATSAPP_BUSINESS  // WhatsApp Business (40 mensajes/día, sin plantillas verificadas)
+  WHATSAPP_API       // WhatsApp API (ilimitado, solo plantillas verificadas)
 }
 
 enum AudienceFilterType {

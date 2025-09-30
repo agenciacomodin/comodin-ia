@@ -1,7 +1,7 @@
 
 import { prisma } from './db'
 import { UserRole, InvitationStatus } from '@prisma/client'
-import { emailService } from './email'
+import { sendEmail, getTeamInvitationTemplate } from './email'
 import crypto from 'crypto'
 
 export interface CreateInvitationData {
@@ -86,15 +86,22 @@ export class InvitationService {
       const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
       const inviteUrl = `${baseUrl}/auth/invite/${token}`
 
-      const emailResult = await emailService.sendInvitationEmail({
-        invitation,
+      const emailTemplate = getTeamInvitationTemplate(
+        invitation.email,
+        invitation.organization.name,
         inviteUrl
+      )
+
+      const emailResult = await sendEmail({
+        to: invitation.email,
+        subject: `Invitación a ${invitation.organization.name}`,
+        html: emailTemplate
       })
 
-      if (!emailResult.success) {
+      if (!emailResult) {
         // Si falla el email, eliminar la invitación
         await prisma.invitation.delete({ where: { id: invitation.id } })
-        throw new Error(`Error enviando email: ${emailResult.error}`)
+        throw new Error('Error enviando email de invitación')
       }
 
       return {

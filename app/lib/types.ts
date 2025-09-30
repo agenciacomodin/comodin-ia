@@ -1807,7 +1807,32 @@ export const CAMPAIGN_TYPE_LABELS = {
   IMMEDIATE: 'Inmediato',
   SCHEDULED: 'Programado',
   DRIP: 'Secuencial',
-  AB_TEST: 'Prueba A/B'
+  AB_TEST: 'Prueba A/B',
+  WHATSAPP_BUSINESS: 'WhatsApp Business',
+  WHATSAPP_API: 'WhatsApp API'
+} as const
+
+export const CAMPAIGN_TYPE_DESCRIPTIONS = {
+  IMMEDIATE: 'Envío inmediato a todos los destinatarios',
+  SCHEDULED: 'Envío programado para una fecha específica',
+  DRIP: 'Envío secuencial con intervalos definidos',
+  AB_TEST: 'Prueba diferentes versiones del mensaje',
+  WHATSAPP_BUSINESS: 'Máximo 40 mensajes diarios, cualquier contenido (texto/imagen/video/audio)',
+  WHATSAPP_API: 'Envío ilimitado, solo plantillas verificadas por Meta'
+} as const
+
+export const WHATSAPP_BUSINESS_LIMITS = {
+  DAILY_MESSAGE_LIMIT: 40,
+  SUPPORTS_MEDIA: true,
+  REQUIRES_TEMPLATES: false,
+  TEMPLATE_VERIFICATION: false
+} as const
+
+export const WHATSAPP_API_LIMITS = {
+  DAILY_MESSAGE_LIMIT: null, // Sin límite
+  SUPPORTS_MEDIA: true,
+  REQUIRES_TEMPLATES: true,
+  TEMPLATE_VERIFICATION: true
 } as const
 
 export const AUDIENCE_FILTER_TYPE_LABELS = {
@@ -1846,6 +1871,24 @@ export const DEFAULT_CAMPAIGN_CONFIG = {
   RETRY_ATTEMPTS: 3, // intentos de reenvío
   PREVIEW_SAMPLE_SIZE: 20, // muestra de contactos en preview
   PREVIEW_EXPIRATION_HOURS: 24 // horas de expiración del preview
+} as const
+
+// Configuraciones específicas para WhatsApp
+export const WHATSAPP_CAMPAIGN_CONFIG = {
+  BUSINESS: {
+    MAX_DAILY_MESSAGES: 40,
+    SEND_RATE: 2, // mensajes por minuto (más lento para conservar cuota)
+    BATCH_SIZE: 10, // lotes más pequeños
+    REQUIRES_VERIFICATION: false,
+    SUPPORTS_RICH_MEDIA: true
+  },
+  API: {
+    MAX_DAILY_MESSAGES: null, // ilimitado
+    SEND_RATE: 50, // mensajes por minuto (más rápido)
+    BATCH_SIZE: 500, // lotes más grandes
+    REQUIRES_VERIFICATION: true,
+    SUPPORTS_RICH_MEDIA: true
+  }
 } as const
 
 // Validaciones

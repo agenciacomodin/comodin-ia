@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { UserRole } from '@prisma/client'
-import { Permission, hasPermission, userHasAnyPermission } from './permissions'
+import { Permission, hasPermission, userHasAnyPermission, getRolePermissions } from './permissions'
 import { prisma } from './db'
 
 /**
@@ -63,8 +63,9 @@ export async function requirePermissions(
 }> {
   const authData = await requireAuth(request)
   
+  const userPermissions = getRolePermissions(authData.userRole)
   const hasRequiredPermissions = permissions.some(permission => 
-    hasPermission(authData.userRole, permission)
+    hasPermission(userPermissions, permission)
   )
   
   if (!hasRequiredPermissions) {
