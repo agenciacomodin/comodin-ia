@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import WhatsAppService from '@/lib/whatsapp-service'
+import { MessageType, MessageDirection } from '@prisma/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       where: {
         organizationId,
         contactId: contact.id,
-        status: 'OPEN'
+        status: { in: ['OPEN', 'PENDING'] }
       }
     })
 
@@ -90,7 +90,8 @@ export async function POST(request: NextRequest) {
           contactId: contact.id,
           status: 'OPEN',
           lastMessageAt: messageTimestamp,
-          unreadCount: 1
+          unreadCount: 1,
+          lastMessageFrom: MessageDirection.INCOMING
         }
       })
     } else {
@@ -98,6 +99,8 @@ export async function POST(request: NextRequest) {
         where: { id: conversation.id },
         data: {
           lastMessageAt: messageTimestamp,
+          lastMessageText: content.substring(0, 200), // Preview del último mensaje
+          lastMessageFrom: MessageDirection.INCOMING,
           unreadCount: {
             increment: 1
           },
@@ -105,6 +108,21 @@ export async function POST(request: NextRequest) {
         }
       })
     }
+
+    // Mapear el tipo entrante a enum MessageType
+    const incomingType = String(type ?? 'text').toLowerCase()
+    const typeMap: Record<string, MessageType> = {
+      text: MessageType.TEXT,
+      image: MessageType.IMAGE,
+      audio: MessageType.AUDIO,
+      video: MessageType.VIDEO,
+      document: MessageType.DOCUMENT,
+      sticker: MessageType.IMAGE, // Los stickers se tratan como imágenes
+      location: MessageType.LOCATION,
+      contact: MessageType.CONTACT,
+      voice: MessageType.AUDIO, // Las notas de voz se tratan como audio
+    }
+    const prismaMessageType = typeMap[incomingType] ?? MessageType.TEXT
 
     // Preparar contenido del mensaje según el tipo
     let messageContent = content
@@ -122,17 +140,18 @@ export async function POST(request: NextRequest) {
       messageMetadata.whatsapp.caption = mediaCaption
     }
 
-    // Crear mensaje
+    // Crear mensaje usando enums correctos
     const message = await prisma.message.create({
       data: {
-        conversationId: conversation.id,
-        content: messageContent,
-        type: type.toUpperCase() as any,
-        direction: 'INCOMING',
         organizationId,
+        conversationId: conversation.id,
+        sentBy: null, // Para mensajes INCOMING, sentBy es null (el contacto no es un usuario del sistema)
+        content: messageContent,
+        type: prismaMessageType,              // ✅ enum correcto
+        direction: MessageDirection.INCOMING, // ✅ enum correcto
         whatsappId: messageId,
-        metadata: messageMetadata,
-        sentAt: messageTimestamp
+        sentAt: messageTimestamp,
+        metadata: messageMetadata
       }
     })
 
@@ -277,10 +296,11 @@ async function executeAutomationAction(action: any, conversationId: string, mess
               data: {
                 organizationId: conversation.organizationId,
                 conversationId,
-                sentBy: 'system', // ID del sistema
+                sentBy: null, // Mensaje automático del sistema
+                sentByName: 'Sistema', // Indicar que es del sistema
                 content: action.replyMessage,
-                type: 'TEXT',
-                direction: 'OUTGOING',
+                type: MessageType.TEXT,
+                direction: MessageDirection.OUTGOING,
                 sentAt: new Date(),
                 metadata: {
                   automation: {
@@ -296,7 +316,7 @@ async function executeAutomationAction(action: any, conversationId: string, mess
         break
 
       case 'ADD_TAG':
-        if (action.tagName) {
+        if (action.data?.tagName) {
           const conversation = await prisma.conversation.findUnique({
             where: { id: conversationId },
             include: { contact: true }
@@ -317,16 +337,6 @@ async function executeAutomationAction(action: any, conversationId: string, mess
                 contactId: conversation.contact.id,
                 name: action.data.tagName,
                 color: action.data.tagColor || '#3B82F6'
-              }
-            })
-
-            // Agregar el tag al contacto
-            await prisma.contact.update({
-              where: { id: conversation.contact.id },
-              data: {
-                tags: {
-                  connect: { id: tag.id }
-                }
               }
             })
           }

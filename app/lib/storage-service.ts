@@ -1,22 +1,13 @@
 
 /**
- * Servicio de Almacenamiento Real (AWS S3)
+ * Servicio de Almacenamiento Real (Supabase Storage)
  * Reemplaza el sistema mock de archivos
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-
-// Configuración AWS S3 (usar variables de entorno o valores por defecto para desarrollo)
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: process.env.AWS_ACCESS_KEY_ID ? {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-  } : undefined
-})
-
-const BUCKET_NAME = process.env.AWS_BUCKET_NAME || 'comodin-dev-files'
+// Configuración simplificada para Supabase (sin dependencias externas)
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://placeholder.supabase.co'
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key'
+const BUCKET_NAME = 'comodin-files'
 
 interface UploadResult {
   success: boolean
@@ -78,36 +69,33 @@ export class StorageService {
       // Convertir File a ArrayBuffer
       const arrayBuffer = await file.arrayBuffer()
 
-      // Subir archivo a S3
-      const putCommand = new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath,
-        Body: new Uint8Array(arrayBuffer),
-        ContentType: file.type,
-        Metadata: {
-          originalName: metadata.fileName,
-          uploadedBy: metadata.uploadedBy,
-          organizationId: metadata.organizationId,
-          uploadedAt: new Date().toISOString()
+      // Subir archivo usando fetch API (compatible con Supabase)
+      const uploadResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Content-Type': file.type,
+          'x-upsert': 'true'
+        },
+        body: arrayBuffer
+      })
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.text()
+        console.error('Upload failed:', errorData)
+        return {
+          success: false,
+          error: `Error de subida: ${uploadResponse.status}`
         }
-      })
+      }
 
-      await s3Client.send(putCommand)
-
-      // Generar URL firmada (válida por 7 días)
-      const getCommand = new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath
-      })
-      
-      const signedUrl = await getSignedUrl(s3Client, getCommand, { 
-        expiresIn: 7 * 24 * 60 * 60 // 7 días
-      })
+      // Generar URL pública (Supabase permite URLs públicas)
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath}`
 
       return {
         success: true,
         path: filePath,
-        url: signedUrl,
+        url: publicUrl,
         fileName: metadata.fileName,
         size: file.size,
         type: file.type
@@ -126,13 +114,22 @@ export class StorageService {
    */
   static async getSignedUrl(filePath: string, expiresIn: number = 3600): Promise<string | null> {
     try {
-      const getCommand = new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath
+      // Para Supabase, generar URL firmada usando fetch API
+      const signedUrlResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/${BUCKET_NAME}/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ expiresIn })
       })
+
+      if (signedUrlResponse.ok) {
+        const data = await signedUrlResponse.json()
+        return `${SUPABASE_URL}/storage/v1${data.signedURL}`
+      }
       
-      const signedUrl = await getSignedUrl(s3Client, getCommand, { expiresIn })
-      return signedUrl
+      return null
     } catch (error) {
       console.error('Error getting signed URL:', error)
       return null
@@ -144,13 +141,14 @@ export class StorageService {
    */
   static async deleteFile(filePath: string): Promise<boolean> {
     try {
-      const deleteCommand = new DeleteObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath
+      const deleteResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
       })
 
-      await s3Client.send(deleteCommand)
-      return true
+      return deleteResponse.ok
     } catch (error) {
       console.error('Error deleting file:', error)
       return false
@@ -207,36 +205,31 @@ export class StorageService {
       const folder = metadata.folder || 'webhooks'
       const filePath = `${metadata.organizationId}/${folder}/${uniqueFileName}`
 
-      // Subir archivo a S3
-      const putCommand = new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath,
-        Body: new Uint8Array(buffer),
-        ContentType: contentType,
-        Metadata: {
-          originalName: fileName,
-          uploadedBy: metadata.uploadedBy,
-          organizationId: metadata.organizationId,
-          uploadedAt: new Date().toISOString()
+      // Subir archivo usando fetch API (compatible con Supabase)
+      const uploadResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Content-Type': contentType,
+          'x-upsert': 'true'
+        },
+        body: buffer
+      })
+
+      if (!uploadResponse.ok) {
+        return {
+          success: false,
+          error: `Error de subida: ${uploadResponse.status}`
         }
-      })
+      }
 
-      await s3Client.send(putCommand)
-
-      // Generar URL firmada
-      const getCommand = new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: filePath
-      })
-      
-      const signedUrl = await getSignedUrl(s3Client, getCommand, { 
-        expiresIn: 7 * 24 * 60 * 60 
-      })
+      // Generar URL pública
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/${filePath}`
 
       return {
         success: true,
         path: filePath,
-        url: signedUrl,
+        url: publicUrl,
         fileName,
         size: buffer.byteLength,
         type: contentType
