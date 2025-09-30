@@ -124,6 +124,58 @@ export const authOptions: NextAuthOptions = {
           permissions: getRolePermissions(user.role).map(p => p.toString()),
         } as ExtendedUser
       }
+    }),
+    CredentialsProvider({
+      id: "qr-auth",
+      name: "QR Authentication",
+      credentials: {
+        sessionId: { label: "Session ID", type: "text" },
+        authToken: { label: "Auth Token", type: "text" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.sessionId || !credentials?.authToken) {
+          throw new Error('Datos de autenticación QR incompletos')
+        }
+
+        try {
+          // Validar el token QR
+          const response = await fetch(`${process.env.NEXTAUTH_URL}/api/auth/qr/validate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sessionId: credentials.sessionId,
+              authToken: credentials.authToken
+            })
+          })
+
+          const result = await response.json()
+
+          if (!result.success || !result.data.user) {
+            throw new Error('Token QR no válido')
+          }
+
+          const user = result.data.user
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            organizationId: user.organizationId,
+            role: user.role,
+            fullName: user.fullName,
+            phone: user.phone,
+            country: user.country,
+            permissions: getRolePermissions(user.role).map(p => p.toString()),
+          } as ExtendedUser
+
+        } catch (error) {
+          console.error('QR Auth error:', error)
+          throw new Error('Error en autenticación QR')
+        }
+      }
     })
   ],
   callbacks: {

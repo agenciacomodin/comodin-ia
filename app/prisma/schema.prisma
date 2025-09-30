@@ -195,6 +195,9 @@ model User {
   // Sistema de Integraciones
   configuredIntegrations OrganizationIntegration[]
   
+  // QR Code Authentication
+  qrSessions QRSession[]
+  
   @@index([organizationId])
   @@index([email])
   @@map("users")
@@ -1978,4 +1981,42 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+// QR Code Authentication Sessions
+model QRSession {
+  id          String   @id @default(cuid())
+  qrCode      String   @unique
+  token       String   @unique
+  status      QRSessionStatus @default(PENDING)
+  
+  // Usuario que se autentica (opcional, se llena cuando se escanea)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Información del dispositivo/navegador
+  userAgent   String?
+  ipAddress   String?
+  
+  // Control de tiempo
+  expiresAt   DateTime
+  scannedAt   DateTime?
+  authenticatedAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([qrCode])
+  @@index([token])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("qr_sessions")
+}
+
+enum QRSessionStatus {
+  PENDING       // QR generado, esperando escaneo
+  SCANNED       // QR escaneado, esperando confirmación
+  AUTHENTICATED // Usuario autenticado exitosamente
+  EXPIRED       // Sesión expirada
+  CANCELLED     // Sesión cancelada
 }
