@@ -16,7 +16,11 @@ import {
   IntegrationType,
   IntegrationStatus,
   EcommercePlatform,
-  CampaignType
+  CampaignType,
+  FollowUpStatus,
+  FollowUpTriggerType,
+  FollowUpChannel,
+  TimeUnit
 } from '@prisma/client'
 
 // Re-export Prisma enums for convenience
@@ -36,7 +40,11 @@ export {
   IntegrationType,
   IntegrationStatus,
   EcommercePlatform,
-  CampaignType
+  CampaignType,
+  FollowUpStatus,
+  FollowUpTriggerType,
+  FollowUpChannel,
+  TimeUnit
 }
 
 export type Expense = {
@@ -1983,5 +1991,134 @@ export interface SendingBatch {
   processedAt?: Date
   completedAt?: Date
   errorMessage?: string
+}
+
+// =========================================================================
+// TIPOS PARA SISTEMA DE SEGUIMIENTOS MEJORADO
+// =========================================================================
+
+export interface FollowUpSequenceData {
+  id?: string
+  name: string
+  description?: string
+  isActive: boolean
+  triggerType: FollowUpTriggerType
+  triggerTags: string[]
+  triggerChannels: FollowUpChannel[]
+  noResponseTime: number
+  noResponseUnit: TimeUnit
+  maxAttempts: number
+  stopOnReply: boolean
+  steps: FollowUpStepData[]
+}
+
+export interface FollowUpStepData {
+  id?: string
+  stepOrder: number
+  waitTime: number
+  waitUnit: TimeUnit
+  messageContent: string
+  channels: FollowUpChannel[]
+  isActive: boolean
+}
+
+export interface FollowUpExecutionData {
+  id: string
+  sequenceId: string
+  sequenceName: string
+  conversationId: string
+  contactName: string
+  contactPhone: string
+  contactAvatar?: string
+  status: FollowUpStatus
+  currentStep: number
+  totalSteps: number
+  lastMessageSent?: Date
+  lastReplyReceived?: Date
+  nextScheduled?: Date
+  messagesSent: number
+  repliesReceived: number
+  createdBy: string
+  createdByName: string
+  startedAt: Date
+  completedAt?: Date
+  lastExecutedAt?: Date
+  stepExecutions: FollowUpStepExecutionData[]
+}
+
+export interface FollowUpStepExecutionData {
+  id: string
+  stepOrder: number
+  status: FollowUpStatus
+  scheduledFor?: Date
+  sentAt?: Date
+  messageContent: string
+  channels: FollowUpChannel[]
+  delivered: boolean
+  read: boolean
+  replied: boolean
+  errorMessage?: string
+  retryCount: number
+}
+
+export interface FollowUpMetrics {
+  activeSequences: number
+  totalExecutions: number
+  completedToday: number
+  scheduledToday: number
+  totalMessagesSent: number
+  totalRepliesReceived: number
+  averageResponseTime: number // in hours
+  conversionRate: number // percentage
+}
+
+export interface CreateFollowUpSequenceRequest {
+  name: string
+  description?: string
+  triggerType: FollowUpTriggerType
+  triggerTags: string[]
+  triggerChannels: FollowUpChannel[]
+  noResponseTime: number
+  noResponseUnit: TimeUnit
+  maxAttempts: number
+  stopOnReply: boolean
+  steps: {
+    waitTime: number
+    waitUnit: TimeUnit
+    messageContent: string
+    channels: FollowUpChannel[]
+  }[]
+}
+
+export interface UpdateFollowUpSequenceRequest extends Partial<CreateFollowUpSequenceRequest> {
+  id: string
+  isActive?: boolean
+}
+
+export interface ActivateFollowUpRequest {
+  conversationId: string
+  sequenceId: string
+}
+
+export interface FollowUpChannelOption {
+  value: FollowUpChannel
+  label: string
+  description: string
+  icon: string
+  available: boolean
+  limitations?: string
+}
+
+export interface TimeUnitOption {
+  value: TimeUnit
+  label: string
+  multiplier: number // to convert to minutes
+}
+
+export interface TagOption {
+  id: string
+  name: string
+  color?: string
+  count: number
 }
 

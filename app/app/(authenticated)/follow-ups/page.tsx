@@ -1,6 +1,6 @@
 
 
-import { FollowUpSystem } from '@/components/crm/follow-up-system'
+import { AdvancedFollowUpSystem } from '@/components/crm/advanced-follow-up-system'
 
 export const metadata = {
   title: 'Seguimientos - COMODÍN IA',
@@ -10,7 +10,7 @@ export const metadata = {
 export default function FollowUpsPage() {
   return (
     <div className="container mx-auto py-6">
-      <FollowUpSystem />
+      <AdvancedFollowUpSystem />
     </div>
   )
 }

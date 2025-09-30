@@ -11,6 +11,12 @@ export enum Permission {
   EXPORT_CRM_DATA = 'EXPORT_CRM_DATA',
   VIEW_CONTACTS = 'VIEW_CONTACTS',
   MANAGE_CONTACTS = 'MANAGE_CONTACTS',
+
+  // Sistema de Seguimientos Automáticos
+  VIEW_FOLLOW_UPS = 'VIEW_FOLLOW_UPS',
+  CREATE_FOLLOW_UP_SEQUENCES = 'CREATE_FOLLOW_UP_SEQUENCES',
+  MANAGE_FOLLOW_UP_SEQUENCES = 'MANAGE_FOLLOW_UP_SEQUENCES',
+  EXECUTE_FOLLOW_UPS = 'EXECUTE_FOLLOW_UPS',
   
   // WhatsApp y Canales
   VIEW_WHATSAPP_CHANNELS = 'VIEW_WHATSAPP_CHANNELS',
@@ -124,6 +130,12 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.EXPORT_CRM_DATA,
         Permission.VIEW_CONTACTS,
         Permission.MANAGE_CONTACTS,
+
+        // Seguimientos - Acceso completo
+        Permission.VIEW_FOLLOW_UPS,
+        Permission.CREATE_FOLLOW_UP_SEQUENCES,
+        Permission.MANAGE_FOLLOW_UP_SEQUENCES,
+        Permission.EXECUTE_FOLLOW_UPS,
         
         // WhatsApp - Acceso completo
         Permission.VIEW_WHATSAPP_CHANNELS,
@@ -233,6 +245,12 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.EXPORT_CRM_DATA,
         Permission.VIEW_CONTACTS,
         Permission.MANAGE_CONTACTS,
+
+        // Seguimientos - Acceso completo
+        Permission.VIEW_FOLLOW_UPS,
+        Permission.CREATE_FOLLOW_UP_SEQUENCES,
+        Permission.MANAGE_FOLLOW_UP_SEQUENCES,
+        Permission.EXECUTE_FOLLOW_UPS,
         
         // WhatsApp - Acceso completo
         Permission.VIEW_WHATSAPP_CHANNELS,
@@ -335,6 +353,11 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.EXPORT_CRM_DATA,
         Permission.VIEW_CONTACTS,
         Permission.MANAGE_CONTACTS,
+
+        // Seguimientos - Crear y ejecutar, pero no gestionar secuencias existentes
+        Permission.VIEW_FOLLOW_UPS,
+        Permission.CREATE_FOLLOW_UP_SEQUENCES,
+        Permission.EXECUTE_FOLLOW_UPS,
         
         // WhatsApp - Puede ver y conectar QR
         Permission.VIEW_WHATSAPP_CHANNELS,
@@ -405,6 +428,10 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.MANAGE_CRM_CONVERSATIONS,
         Permission.VIEW_CRM_ANALYTICS,
         Permission.VIEW_CONTACTS,
+
+        // Seguimientos - Solo ver y ejecutar
+        Permission.VIEW_FOLLOW_UPS,
+        Permission.EXECUTE_FOLLOW_UPS,
         
         // WhatsApp - Solo ver
         Permission.VIEW_WHATSAPP_CHANNELS,

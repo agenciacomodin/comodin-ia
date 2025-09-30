@@ -129,6 +129,10 @@ model Organization {
   contactNotes         ContactNote[]
   conversations        Conversation[]
   messages             Message[]
+
+  // Sistema de seguimientos mejorado
+  followUpSequences    FollowUpSequence[]
+  followUpExecutions   FollowUpExecution[]
   
   // Canales de WhatsApp y Respuestas Rápidas
   whatsappChannels     WhatsAppChannel[]
@@ -685,6 +689,216 @@ model ContactNote {
   @@map("contact_notes")
 }
 
+// Enums para el sistema de seguimientos mejorado
+enum FollowUpStatus {
+  ACTIVE        // Secuencia activa, esperando
+  PAUSED        // Pausada temporalmente
+  COMPLETED     // Completada (respuesta recibida)
+  CANCELLED     // Cancelada manualmente
+  EXPIRED       // Expirada sin completar
+}
+
+enum FollowUpTriggerType {
+  MANUAL           // Activación manual
+  TAG_BASED        // Por etiquetas de contacto
+  NO_RESPONSE      // Sin respuesta por X tiempo
+  CONVERSATION_STATUS // Por estado de conversación
+}
+
+enum FollowUpChannel {
+  WHATSAPP_QR      // WhatsApp QR/Business
+  WHATSAPP_API     // WhatsApp API oficial
+  INSTAGRAM        // Instagram
+  FACEBOOK         // Facebook Messenger
+  SMS              // SMS
+  EMAIL            // Email
+}
+
+enum TimeUnit {
+  MINUTES
+  HOURS
+  DAYS
+}
+
+// Tabla principal de secuencias de seguimiento
+model FollowUpSequence {
+  id               String              @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica
+  name             String              // Nombre de la secuencia
+  description      String?             @db.Text // Descripción opcional
+  isActive         Boolean             @default(true) // Si está activa
+  
+  // Configuración de disparadores
+  triggerType      FollowUpTriggerType @default(MANUAL)
+  triggerTags      String[]            // Array de etiquetas que activan la secuencia
+  triggerChannels  FollowUpChannel[]   // Canales donde se ejecutará
+  
+  // Condiciones de activación
+  noResponseTime   Int                 @default(24) // Tiempo sin respuesta
+  noResponseUnit   TimeUnit           @default(HOURS) // Unidad de tiempo
+  
+  // Límites y configuración
+  maxAttempts      Int                @default(3) // Máximo número de intentos
+  stopOnReply      Boolean            @default(true) // Parar si el contacto responde
+  
+  // Usuario que creó la secuencia
+  createdBy        String             // ID del usuario
+  createdByName    String             // Nombre del usuario
+  
+  // Fechas
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  
+  // Relaciones
+  steps            FollowUpStep[]
+  executions       FollowUpExecution[]
+  
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([triggerType])
+  @@map("followup_sequences")
+}
+
+// Pasos individuales dentro de una secuencia
+model FollowUpStep {
+  id               String           @id @default(cuid())
+  
+  // Relación con la secuencia
+  sequenceId       String
+  sequence         FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  
+  // Orden del paso
+  stepOrder        Int              // Orden del paso (1, 2, 3, etc.)
+  
+  // Configuración del paso
+  waitTime         Int              // Tiempo de espera antes de este paso
+  waitUnit         TimeUnit         @default(HOURS) // Unidad de tiempo
+  
+  // Contenido del mensaje
+  messageContent   String           @db.Text // Contenido con variables {{nombre_contacto}}
+  
+  // Canales para este paso específico
+  channels         FollowUpChannel[] // Canales donde enviar este paso
+  
+  // Estado del paso
+  isActive         Boolean          @default(true)
+  
+  // Fechas
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  // Relaciones
+  executions       FollowUpStepExecution[]
+  
+  @@index([sequenceId])
+  @@index([stepOrder])
+  @@map("followup_steps")
+}
+
+// Ejecuciones de secuencias para conversaciones específicas
+model FollowUpExecution {
+  id               String              @id @default(cuid())
+  
+  // Multi-tenant
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con la secuencia
+  sequenceId       String
+  sequence         FollowUpSequence    @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  
+  // Conversación objetivo
+  conversationId   String
+  conversation     Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Estado de la ejecución
+  status           FollowUpStatus      @default(ACTIVE)
+  currentStep      Int                 @default(1) // Paso actual en ejecución
+  totalSteps       Int                 // Total de pasos cuando se inició
+  
+  // Información de seguimiento
+  lastMessageSent  DateTime?           // Último mensaje enviado por nosotros
+  lastReplyReceived DateTime?          // Última respuesta recibida del contacto
+  nextScheduled    DateTime?           // Próxima ejecución programada
+  
+  // Contadores
+  messagesSent     Int                 @default(0) // Total mensajes enviados
+  repliesReceived  Int                 @default(0) // Total respuestas recibidas
+  
+  // Usuario responsable
+  createdBy        String              // ID del usuario que activó
+  createdByName    String              // Nombre del usuario
+  
+  // Control de fechas
+  startedAt        DateTime            @default(now())
+  completedAt      DateTime?           // Cuando se completó
+  lastExecutedAt   DateTime?           // Última vez que se ejecutó un paso
+  
+  // Fechas
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relaciones
+  stepExecutions   FollowUpStepExecution[]
+  
+  @@unique([conversationId, sequenceId]) // Una secuencia por conversación
+  @@index([organizationId])
+  @@index([status])
+  @@index([nextScheduled])
+  @@map("followup_executions")
+}
+
+// Ejecuciones de pasos individuales
+model FollowUpStepExecution {
+  id               String              @id @default(cuid())
+  
+  // Relación con la ejecución principal
+  executionId      String
+  execution        FollowUpExecution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  // Relación con el paso
+  stepId           String
+  step             FollowUpStep        @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  
+  // Estado del paso
+  status           FollowUpStatus      @default(ACTIVE)
+  scheduledFor     DateTime?           // Cuándo está programado
+  sentAt           DateTime?           // Cuándo fue enviado
+  
+  // Mensaje enviado
+  messageContent   String              @db.Text // Mensaje final (con variables resueltas)
+  channels         FollowUpChannel[]   // Canales donde se envió
+  
+  // IDs de mensajes externos (para tracking)
+  whatsappMessageId String?            // ID en WhatsApp
+  whatsappChannelId String?            // Canal de WhatsApp usado
+  
+  // Resultados
+  delivered        Boolean             @default(false)
+  read             Boolean             @default(false)
+  replied          Boolean             @default(false)
+  
+  // Error handling
+  errorMessage     String?             @db.Text
+  retryCount       Int                 @default(0)
+  maxRetries       Int                 @default(3)
+  
+  // Fechas
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  @@index([executionId])
+  @@index([stepId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@map("followup_step_executions")
+}
+
 // Tabla Conversation - Conversaciones/Chats individuales
 model Conversation {
   id               String               @id @default(cuid())
@@ -734,6 +948,7 @@ model Conversation {
   
   // Relaciones
   messages         Message[]
+  followUpExecutions FollowUpExecution[]
   
   @@unique([organizationId, whatsappChatId]) // Chat único por organización
   @@index([organizationId])
