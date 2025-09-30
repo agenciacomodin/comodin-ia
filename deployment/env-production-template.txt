@@ -1,0 +1,63 @@
+
+# ========================================
+# COMODÍN IA - VARIABLES DE PRODUCCIÓN
+# ========================================
+# 
+# INSTRUCCIONES:
+# 1. Copia este archivo como .env en el directorio de la aplicación
+# 2. Actualiza las credenciales según sea necesario
+# 3. NO incluyas este archivo en el repositorio Git
+# ========================================
+
+# Base de Datos (Supabase)
+DATABASE_URL=postgresql://postgres.ovpcxvotqfmiqqrdmloi:22N3m3s1@?123456@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://ovpcxvotqfmiqqrdmloi.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGN4dm90cWZtaXFxcmRtbG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDg0MTQsImV4cCI6MjA3NDA4NDQxNH0.7ZFIWqIM2snDqmZYZKmlfNWBk6VN2ojlYftNctbrpUA
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGN4dm90cWZtaXFxcmRtbG9pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwODQxNCwiZXhwIjoyMDc0MDg0NDE0fQ.P78W782Ix9Nixeh1LbHax3Rf--JSoTvpSR2l0KGS31w
+
+# Seguridad & Autenticación
+NEXTAUTH_SECRET=ca7a6726b28640812f0ad2e4e94da7901362406a027e08ab949407721c8efb6e
+NEXTAUTH_URL=https://crm.comodinia.com
+ENCRYPTION_SECRET=1652093a8a6f7faec9faa1aeaee9fc8f93b601a4a62bf97f638f99088e89342a
+CRON_SECRET=cron_secret_comodin_ia_production_2024
+
+# Stripe (Producción)
+STRIPE_SECRET_KEY=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
+STRIPE_PUBLISHABLE_KEY=pk_live_51LkF9aHZmGOpXSGYhRwtSFpfyJfbQSBH9ADCV2CNrhVpMtdpEUdUcq32mZ122yqxOGzVNBbLetZv8jp7ubDs92iv00ERgJ5WKA
+STRIPE_WEBHOOK_SECRET=whsec_production_webhook_secret_here
+
+# MercadoPago (Producción)
+MERCADO_PAGO_ACCESS_TOKEN=APP_USR-4099736982406285-092308-f4bc1fc824e11f0808f692a7175ae51c-537499879
+MERCADO_PAGO_PUBLIC_KEY=APP_USR-1020ef09-bb62-4b0d-8a5d-5ed2a2daec3a
+MERCADO_PAGO_CLIENT_ID=4099736982406285
+MERCADO_PAGO_CLIENT_SECRET=vJrqDIdNd8ZxJFRZ98E556MZpGucvIWD
+
+# OpenAI API
+OPENAI_API_KEY=sk-proj-LbX-bruI4k2ome6ewriy0xNZORiK0WKOxdq-fWoSY_uGozmZx4xNYc1xRrnEbvGd0sA8A
+
+# Google OAuth
+GOOGLE_CLIENT_ID=1020113425120-d0vq69q2364qu8q96mpt6aleai93k4eg.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=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
+
+# Redis
+REDIS_URL=redis://redis:6379
+REDIS_PASSWORD=ComodinRedis2025
+
+# WhatsApp Business API
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=comodin_whatsapp_webhook_2024
+
+# Email (SMTP) - CONFIGURAR CON TU GMAIL APP PASSWORD
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=noreply@comodinia.com
+SMTP_PASSWORD=AQUI_TU_GMAIL_APP_PASSWORD
+SMTP_FROM_NAME=COMODÍN IA
+SMTP_FROM_EMAIL=noreply@comodinia.com
+
+# GitHub (Para integraciones)
+GITHUB_TOKEN=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
+
+# Ambiente
+NODE_ENV=production
+PORT=3000
+HOST=0.0.0.0

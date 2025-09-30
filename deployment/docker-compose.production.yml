@@ -1,0 +1,82 @@
+
+version: '3.8'
+
+services:
+  # Aplicación Next.js
+  app:
+    build:
+      context: ../app
+      dockerfile: ../deployment/Dockerfile
+    container_name: comodin-ia-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres.ovpcxvotqfmiqqrdmloi:22N3m3s1@?123456@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+      - NEXTAUTH_URL=https://crm.comodinia.com
+      - NEXTAUTH_SECRET=ca7a6726b28640812f0ad2e4e94da7901362406a027e08ab949407721c8efb6e
+      - SUPABASE_URL=https://ovpcxvotqfmiqqrdmloi.supabase.co
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGN4dm90cWZtaXFxcmRtbG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MDg0MTQsImV4cCI6MjA3NDA4NDQxNH0.7ZFIWqIM2snDqmZYZKmlfNWBk6VN2ojlYftNctbrpUA
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cGN4dm90cWZtaXFxcmRtbG9pIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUwODQxNCwiZXhwIjoyMDc0MDg0NDE0fQ.P78W782Ix9Nixeh1LbHax3Rf--JSoTvpSR2l0KGS31w
+      - OPENAI_API_KEY=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
+      - STRIPE_SECRET_KEY=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
+      - STRIPE_PUBLISHABLE_KEY=pk_live_51LkF9aHZmGOpXSGYhRwtSFpfyJfbQSBH9ADCV2CNrhVpMtdpEUdUcq32mZ122yqxOGzVNBbLetZv8jp7ubDs92iv00ERgJ5WKA
+      - MERCADO_PAGO_ACCESS_TOKEN=APP_USR-4099736982406285-092308-f4bc1fc824e11f0808f692a7175ae51c-537499879
+      - MERCADO_PAGO_PUBLIC_KEY=APP_USR-1020ef09-bb62-4b0d-8a5d-5ed2a2daec3a
+      - MERCADO_PAGO_CLIENT_ID=4099736982406285
+      - MERCADO_PAGO_CLIENT_SECRET=vJrqDIdNd8ZxJFRZ98E556MZpGucvIWD
+      - GOOGLE_CLIENT_ID=1020113425120-d0vq69q2364qu8q96mpt6aleai93k4eg.apps.googleusercontent.com
+      - GOOGLE_CLIENT_SECRET=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
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=ComodinRedis2025
+      - WHATSAPP_WEBHOOK_VERIFY_TOKEN=comodin_whatsapp_webhook_2024
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=noreply@comodinia.com
+      - SMTP_PASSWORD=your_gmail_app_password_here
+      - ENCRYPTION_SECRET=1652093a8a6f7faec9faa1aeaee9fc8f93b601a4a62bf97f638f99088e89342a
+      - CRON_SECRET=cron_secret_comodin_ia_production_2024
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - comodin-network
+    volumes:
+      - ./logs:/app/logs
+
+  # Redis para caché y sesiones
+  redis:
+    image: redis:7-alpine
+    container_name: comodin-ia-redis
+    command: redis-server --requirepass ComodinRedis2025
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - comodin-network
+
+  # Nginx como reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: comodin-ia-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - comodin-network
+
+volumes:
+  redis_data:
+
+networks:
+  comodin-network:
+    driver: bridge
