@@ -1350,12 +1350,13 @@ export interface IntegrationsStats {
 export const INTEGRATION_TYPE_LABELS = {
   ECOMMERCE: 'E-commerce',
   CRM: 'CRM',
+  ERP: 'ERP',
   PAYMENT: 'Pagos',
-  COMMUNICATION: 'Comunicación',
-  SOCIAL_MEDIA: 'Redes Sociales',
   ANALYTICS: 'Análisis',
   MARKETING: 'Marketing',
-  PRODUCTIVITY: 'Productividad',
+  SOCIAL_MEDIA: 'Redes Sociales',
+  EMAIL: 'Email Marketing',
+  SUPPORT: 'Soporte',
   OTHER: 'Otros'
 } as const
 

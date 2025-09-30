@@ -28,12 +28,12 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { CampaignType } from '@prisma/client'
 import { useToast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import {
   MessageTemplateSummary,
   CreateCampaignRequest,
-  CampaignType,
   AudienceFilter,
   AudiencePreview,
   CAMPAIGN_TYPE_LABELS,
@@ -201,14 +201,14 @@ export default function CampaignWizard({ onCampaignCreated }: CampaignWizardProp
       let batchSize = campaignData.batchSize || DEFAULT_CAMPAIGN_CONFIG.BATCH_SIZE
       let maxRecipients = campaignData.maxRecipients
 
-      if (campaignData.type === 'WHATSAPP_BUSINESS') {
+      if (campaignData.type === CampaignType.WHATSAPP_BUSINESS) {
         sendRate = WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.SEND_RATE
         batchSize = WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.BATCH_SIZE
         // Aplicar límite de 40 mensajes diarios si no se especifica uno menor
         if (!maxRecipients || maxRecipients > WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.MAX_DAILY_MESSAGES) {
           maxRecipients = WHATSAPP_CAMPAIGN_CONFIG.BUSINESS.MAX_DAILY_MESSAGES
         }
-      } else if (campaignData.type === 'WHATSAPP_API') {
+      } else if (campaignData.type === CampaignType.WHATSAPP_API) {
         sendRate = WHATSAPP_CAMPAIGN_CONFIG.API.SEND_RATE
         batchSize = WHATSAPP_CAMPAIGN_CONFIG.API.BATCH_SIZE
       }
@@ -623,10 +623,10 @@ function BasicInfoStep({ data, onChange, errors }: BasicInfoStepProps) {
         </div>
 
         {/* Información específica para WhatsApp */}
-        {(data.type === 'WHATSAPP_BUSINESS' || data.type === 'WHATSAPP_API') && (
+        {(data.type === CampaignType.WHATSAPP_BUSINESS || data.type === CampaignType.WHATSAPP_API) && (
           <div className="rounded-lg border bg-gradient-to-r from-green-50 to-blue-50 p-4">
             <h4 className="font-medium text-gray-900 mb-2">
-              {data.type === 'WHATSAPP_BUSINESS' ? 'WhatsApp Business' : 'WhatsApp API'} - Características
+              {data.type === CampaignType.WHATSAPP_BUSINESS ? 'WhatsApp Business' : 'WhatsApp API'} - Características
             </h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

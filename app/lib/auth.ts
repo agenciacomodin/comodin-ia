@@ -1,5 +1,5 @@
 
-import { NextAuthOptions, User, Profile } from 'next-auth'
+import { NextAuthOptions, User, Profile, getServerSession } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from './db'
@@ -218,4 +218,9 @@ export const authOptions: NextAuthOptions = {
       console.log(`✅ Usuario iniciado sesión: ${user.email}`)
     }
   }
+}
+
+// Helper function to get server session
+export async function getSession() {
+  return await getServerSession(authOptions)
 }
