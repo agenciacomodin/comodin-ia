@@ -181,7 +181,7 @@ export function KnowledgeStatsWidget({ stats }: KnowledgeStatsWidgetProps) {
           <CardHeader>
             <CardTitle className="text-lg">Actividad Reciente</CardTitle>
             <CardDescription>
-              Últimas actualizaciones en tu base de conocimiento
+              Últimas actualizaciones en el entrenamiento de tu IA
             </CardDescription>
           </CardHeader>
           <CardContent>

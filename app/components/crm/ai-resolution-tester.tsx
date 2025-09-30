@@ -126,7 +126,7 @@ export function AIResolutionTester() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Probador de IA Resolutiva</h2>
           <p className="text-gray-600">
-            Prueba cómo la IA responde a consultas de clientes usando la Base de Conocimiento
+            Prueba cómo la IA responde a consultas de clientes usando el entrenamiento de IA
           </p>
         </div>
         <Button onClick={loadStats} variant="outline" size="sm">

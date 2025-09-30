@@ -118,12 +118,7 @@ export function LoginForm() {
         )}
       </Button>
 
-      {/* Test account hint for development */}
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-        <p className="font-medium mb-1">Cuenta de prueba disponible:</p>
-        <p>Email: john@doe.com</p>
-        <p>Contraseña: johndoe123</p>
-      </div>
+
     </form>
   )
 }

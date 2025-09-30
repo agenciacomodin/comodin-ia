@@ -1,12 +1,18 @@
 
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
-import { Bell, Search, Menu } from 'lucide-react'
+import { Bell, Search, Menu, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface MainHeaderProps {
   onMenuClick?: () => void
@@ -17,7 +23,8 @@ const getPageInfo = (pathname: string) => {
     '/dashboard': { title: 'Dashboard', subtitle: 'Resumen general de tu negocio' },
     '/inbox': { title: 'Bandeja de Entrada', subtitle: 'Centro unificado de comunicaciones y CRM' },
     '/campaigns': { title: 'Campañas', subtitle: 'Gestiona tus campañas de WhatsApp y mensajería masiva' },
-    '/knowledge-base': { title: 'Base de Conocimiento', subtitle: 'Gestiona documentos, archivos y contenido para entrenar tu asistente IA' },
+    '/knowledge-base': { title: 'Entrenar IA', subtitle: 'Gestiona documentos, archivos y contenido para entrenar tu asistente IA' },
+    '/follow-ups': { title: 'Seguimientos', subtitle: 'Gestiona el seguimiento automático de conversaciones abiertas para retomar charlas' },
     '/contacts': { title: 'Contactos', subtitle: 'Gestiona tu base de clientes y leads' },
     '/reports': { title: 'Reportes', subtitle: 'Analítica y métricas de rendimiento de tu negocio' },
     '/settings': { title: 'Configuración', subtitle: 'Gestiona la configuración de tu cuenta y organización' },
@@ -75,6 +82,21 @@ export function MainHeader({ onMenuClick }: MainHeaderProps) {
               3
             </Badge>
           </Button>
+
+          {/* Botón de cerrar sesión rápido */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" title="Cerrar Sesión">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/' })}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Cerrar Sesión</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Información de organización */}
           {session?.user && (

@@ -79,7 +79,7 @@ export function EnhancedAIStatusIndicator({ conversationId, className }: AIStatu
             Estado del Sistema de IA Resolutiva
           </DialogTitle>
           <DialogDescription>
-            Sistema inteligente que responde automáticamente usando la Base de Conocimiento
+            Sistema inteligente que responde automáticamente usando el entrenamiento de IA
           </DialogDescription>
         </DialogHeader>
 

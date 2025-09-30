@@ -20,7 +20,8 @@ import {
   Building,
   Wallet,
   Bot,
-  TestTube2
+  TestTube2,
+  Clock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -52,9 +53,15 @@ const navigationItems = [
     icon: MessageSquare
   },
   {
-    name: 'Base de Conocimiento',
+    name: 'Entrenar IA',
     href: '/knowledge-base',
     icon: BookOpen
+  },
+  {
+    name: 'Seguimientos',
+    href: '/follow-ups',
+    icon: Clock,
+    description: 'Automáticos'
   },
   {
     name: 'Pruebas de IA',
@@ -153,7 +160,7 @@ export function MainSidebar({ className }: MainSidebarProps) {
                   ? "bg-blue-100 text-blue-700" 
                   : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
               )}>
-                <Icon className="h-5 w-5" />
+                <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
                 {!collapsed && (
                   <div>
                     <div>{item.name}</div>
@@ -170,12 +177,16 @@ export function MainSidebar({ className }: MainSidebarProps) {
 
       {/* Footer con configuración y usuario */}
       <div className="p-4 border-t border-gray-200 space-y-2">
-        {/* Cartera Virtual - solo si no está colapsado */}
-        {!collapsed && session?.user && (
+        {/* Cartera Virtual */}
+        {session?.user && (
           <Link href="/wallet">
-            <div className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors">
-              <Wallet className="h-5 w-5" />
-              <span>Cartera Virtual</span>
+            <div className={cn(
+              "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors",
+              collapsed && "justify-center",
+              pathname === '/wallet' && "bg-blue-100 text-blue-700"
+            )}>
+              <Wallet className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+              {!collapsed && <span>Cartera Virtual</span>}
             </div>
           </Link>
         )}
@@ -184,9 +195,10 @@ export function MainSidebar({ className }: MainSidebarProps) {
         <Link href="/settings">
           <div className={cn(
             "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors",
+            collapsed && "justify-center",
             pathname === '/settings' && "bg-blue-100 text-blue-700"
           )}>
-            <Settings className="h-5 w-5" />
+            <Settings className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
             {!collapsed && <span>Configuración</span>}
           </div>
         </Link>
