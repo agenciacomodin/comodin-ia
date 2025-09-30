@@ -22,7 +22,8 @@ import {
   Bot,
   TestTube2,
   Clock,
-  Plug
+  Plug,
+  CreditCard
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -72,7 +73,7 @@ const navigationItems = [
   },
   {
     name: 'Pruebas de IA',
-    href: '/crm/ai-testing',
+    href: '/ai-testing',
     icon: TestTube2,
     description: 'Resolutiva'
   },
@@ -85,6 +86,18 @@ const navigationItems = [
     name: 'Reportes',
     href: '/reports',
     icon: BarChart3
+  },
+  {
+    name: 'Pagos',
+    href: '/payments',
+    icon: CreditCard,
+    description: 'Facturación'
+  },
+  {
+    name: 'Planes',
+    href: '/pricing',
+    icon: Wallet,
+    description: 'Pricing'
   }
 ]
 

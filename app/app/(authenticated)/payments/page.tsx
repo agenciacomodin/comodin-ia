@@ -2,14 +2,14 @@
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { ProtectedRoute } from '@/components/auth/protected-route'
 import { Permission } from '@/lib/permissions'
-import { ProfileManager } from '@/components/profile/profile-manager'
+import { PaymentsManager } from '@/components/payments/payments-manager'
 
-export default async function ProfilePage() {
+export default async function PaymentsPage() {
   const { organization, user } = await getCurrentOrganization()
 
   return (
-    <ProtectedRoute permissions={[]}>
-      <ProfileManager user={user} organization={organization} />
+    <ProtectedRoute permissions={[Permission.MANAGE_ORGANIZATION]}>
+      <PaymentsManager />
     </ProtectedRoute>
   )
 }
