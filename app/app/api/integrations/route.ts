@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { prisma } from '@/lib/db'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 
 // GET /api/integrations - Obtener todas las integraciones disponibles
 export async function GET(request: NextRequest) {
   try {
     const { user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.VIEW_INTEGRATIONS)) {
+    if (!userHasPermission(user.role, Permission.VIEW_INTEGRATIONS)) {
       return NextResponse.json(
         { error: 'No tienes permisos para ver las integraciones' },
         { status: 403 }
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   try {
     const { user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.PLATFORM_ADMINISTRATION)) {
+    if (!userHasPermission(user.role, Permission.PLATFORM_ADMINISTRATION)) {
       return NextResponse.json(
         { error: 'No tienes permisos para crear integraciones' },
         { status: 403 }

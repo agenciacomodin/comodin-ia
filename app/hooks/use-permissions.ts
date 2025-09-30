@@ -10,7 +10,9 @@ import {
   hasAllPermissions,
   canAccessRoute,
   getDashboardRoute,
-  getRolePermissions 
+  getRolePermissions,
+  userHasPermission,
+  userHasAnyPermission
 } from '@/lib/permissions'
 
 /**
@@ -34,22 +36,24 @@ export function usePermissions() {
     // Funciones de permisos
     hasPermission: (permission: Permission) => {
       if (!role) return false
-      return hasPermission(role, permission)
+      return userHasPermission(role, permission)
     },
     
     hasAnyPermission: (permissions: Permission[]) => {
       if (!role) return false
-      return hasAnyPermission(role, permissions)
+      return userHasAnyPermission(role, permissions)
     },
     
     hasAllPermissions: (permissions: Permission[]) => {
       if (!role) return false
-      return hasAllPermissions(role, permissions)
+      const rolePermissions = getRolePermissions(role).map(p => p.toString())
+      return hasAllPermissions(rolePermissions, permissions)
     },
     
     canAccessRoute: (route: string) => {
       if (!role) return false
-      return canAccessRoute(role, route)
+      const rolePermissions = getRolePermissions(role).map(p => p.toString())
+      return canAccessRoute(rolePermissions, route)
     },
     
     getDashboardRoute: () => {

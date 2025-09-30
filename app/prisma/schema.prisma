@@ -203,6 +203,21 @@ model User {
   @@map("users")
 }
 
+// Tabla PasswordResetToken - Tokens para recuperación de contraseña
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String   // Email del usuario
+  token     String   @unique // Token único para la recuperación
+  expiresAt DateTime // Fecha de expiración
+  used      Boolean  @default(false) // Si ya fue utilizado
+  createdAt DateTime @default(now())
+  
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
 // Tabla Invitations - Sistema de invitaciones de equipo
 model Invitation {
   id             String           @id @default(cuid())

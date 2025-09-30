@@ -2,7 +2,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 import AudienceBuilder from '@/components/campaigns/audience-builder'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -18,7 +18,7 @@ export default async function AudienceBuilderPage() {
     redirect('/auth/signin')
   }
 
-  if (!hasPermission(session.user.role, Permission.USE_AUDIENCE_BUILDER)) {
+  if (!userHasPermission(session.user.role, Permission.USE_AUDIENCE_BUILDER)) {
     redirect('/campaigns')
   }
 

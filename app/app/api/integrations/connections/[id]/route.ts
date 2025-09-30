@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { prisma } from '@/lib/db'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 
 interface Context {
   params: {
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: Context) {
   try {
     const { organization, user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.VIEW_INTEGRATIONS)) {
+    if (!userHasPermission(user.role, Permission.VIEW_INTEGRATIONS)) {
       return NextResponse.json(
         { error: 'No tienes permisos para ver las integraciones' },
         { status: 403 }
@@ -77,7 +77,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
   try {
     const { organization, user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.CONFIGURE_INTEGRATION_SETTINGS)) {
+    if (!userHasPermission(user.role, Permission.CONFIGURE_INTEGRATION_SETTINGS)) {
       return NextResponse.json(
         { error: 'No tienes permisos para configurar integraciones' },
         { status: 403 }
@@ -165,7 +165,7 @@ export async function DELETE(request: NextRequest, { params }: Context) {
   try {
     const { organization, user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.DISCONNECT_INTEGRATIONS)) {
+    if (!userHasPermission(user.role, Permission.DISCONNECT_INTEGRATIONS)) {
       return NextResponse.json(
         { error: 'No tienes permisos para desconectar integraciones' },
         { status: 403 }

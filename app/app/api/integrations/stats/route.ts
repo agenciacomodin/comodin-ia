@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { prisma } from '@/lib/db'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 
 // GET /api/integrations/stats - Obtener estadísticas de integraciones
 export async function GET(request: NextRequest) {
   try {
     const { organization, user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.VIEW_INTEGRATIONS)) {
+    if (!userHasPermission(user.role, Permission.VIEW_INTEGRATIONS)) {
       return NextResponse.json(
         { error: 'No tienes permisos para ver las estadísticas de integraciones' },
         { status: 403 }

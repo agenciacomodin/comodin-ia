@@ -2,7 +2,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 import CampaignWizard from '@/components/campaigns/campaign-wizard'
 
 export const metadata = {
@@ -17,7 +17,7 @@ export default async function CreateCampaignPage() {
     redirect('/auth/signin')
   }
 
-  if (!hasPermission(session.user.role, Permission.CREATE_CAMPAIGNS)) {
+  if (!userHasPermission(session.user.role, Permission.CREATE_CAMPAIGNS)) {
     redirect('/campaigns')
   }
 

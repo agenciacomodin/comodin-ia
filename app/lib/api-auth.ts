@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from './auth'
 import { UserRole } from '@prisma/client'
-import { Permission, hasPermission } from './permissions'
+import { Permission, hasPermission, userHasAnyPermission } from './permissions'
 import { prisma } from './db'
 
 /**

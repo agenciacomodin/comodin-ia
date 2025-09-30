@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 
 interface RouteParams {
   params: {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    if (!hasPermission(session.user.role, Permission.VIEW_CAMPAIGNS)) {
+    if (!userHasPermission(session.user.role, Permission.VIEW_CAMPAIGNS)) {
       return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
     }
 
@@ -76,7 +76,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    if (!hasPermission(session.user.role, Permission.MANAGE_CAMPAIGNS)) {
+    if (!userHasPermission(session.user.role, Permission.MANAGE_CAMPAIGNS)) {
       return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
     }
 
@@ -157,7 +157,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    if (!hasPermission(session.user.role, Permission.DELETE_CAMPAIGNS)) {
+    if (!userHasPermission(session.user.role, Permission.DELETE_CAMPAIGNS)) {
       return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
     }
 

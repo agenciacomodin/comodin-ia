@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 
 // GET /api/campaigns/stats - Obtener estadísticas de campañas
 export async function GET(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    if (!hasPermission(session.user.role, Permission.VIEW_CAMPAIGNS)) {
+    if (!userHasPermission(session.user.role, Permission.VIEW_CAMPAIGNS)) {
       return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
     }
 

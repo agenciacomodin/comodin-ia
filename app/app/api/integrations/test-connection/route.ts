@@ -2,14 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { prisma } from '@/lib/db'
-import { hasPermission, Permission } from '@/lib/permissions'
+import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
 
 // POST /api/integrations/test-connection - Probar credenciales de una integración
 export async function POST(request: NextRequest) {
   try {
     const { user } = await getCurrentOrganization()
     
-    if (!hasPermission(user.role, Permission.CONNECT_INTEGRATIONS)) {
+    if (!userHasPermission(user.role, Permission.CONNECT_INTEGRATIONS)) {
       return NextResponse.json(
         { error: 'No tienes permisos para probar integraciones' },
         { status: 403 }

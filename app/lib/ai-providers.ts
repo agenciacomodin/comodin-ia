@@ -2,7 +2,7 @@
 import { prisma } from './db'
 import { AIProvider, UserRole } from '@prisma/client'
 import { encryptApiKey, decryptApiKey, maskApiKey, validateApiKeyFormat } from './crypto'
-import { hasPermission, Permission } from './permissions'
+import { hasPermission, userHasPermission, Permission } from './permissions'
 
 export interface AIProviderInput {
   name: string
