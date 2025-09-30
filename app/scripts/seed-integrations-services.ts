@@ -192,15 +192,19 @@ async function main() {
       update: {
         displayName: integration.displayName,
         description: integration.description,
-        type: integration.type,
-        platform: integration.platform,
+        type: integration.type as IntegrationType,
+        platform: integration.platform as EcommercePlatform,
         authType: integration.authType,
         authFields: integration.authFields,
         supportedFeatures: integration.supportedFeatures,
         brandColor: integration.brandColor,
         documentation: integration.documentation
       },
-      create: integration
+      create: {
+        ...integration,
+        type: integration.type as IntegrationType,
+        platform: integration.platform as EcommercePlatform
+      }
     })
   }
 
@@ -337,7 +341,7 @@ async function main() {
       update: {
         displayName: service.displayName,
         description: service.description,
-        type: service.type,
+        type: service.type as SupportServiceType,
         price: service.price,
         currency: service.currency,
         estimatedHours: service.estimatedHours,
@@ -347,7 +351,10 @@ async function main() {
         tags: service.tags,
         skillsRequired: service.skillsRequired
       },
-      create: service
+      create: {
+        ...service,
+        type: service.type as SupportServiceType
+      }
     })
   }
 
