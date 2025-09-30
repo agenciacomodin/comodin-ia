@@ -77,6 +77,8 @@ enum TransactionType {
   ADJUSTMENT            // Ajuste manual
 }
 
+
+
 // Tabla Organizations - Base del multi-tenant (aislamiento por tenant)
 model Organization {
   id          String   @id @default(cuid())
@@ -957,6 +959,7 @@ model Conversation {
   // Relaciones
   messages         Message[]
   followUpExecutions FollowUpExecution[]
+  ragAgentConversations RAGAgentConversation[]
   
   @@unique([organizationId, whatsappChatId]) // Chat único por organización
   @@index([organizationId])
@@ -2636,3 +2639,5 @@ model SupportTicketUpdate {
   @@index([createdAt])
   @@map("support_ticket_updates")
 }
+
+

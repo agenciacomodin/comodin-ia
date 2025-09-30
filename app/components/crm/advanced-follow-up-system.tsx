@@ -694,7 +694,7 @@ export function AdvancedFollowUpSystem() {
                             className="mt-1"
                           />
                           <p className="text-xs text-gray-500 mt-1">
-                            Variables disponibles: {{nombre_contacto}}, {{empresa}}, {{telefono}}
+                            Variables disponibles: {"{nombre_contacto}, {empresa}, {telefono}"}
                           </p>
                         </div>
 

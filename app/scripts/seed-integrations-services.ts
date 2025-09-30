@@ -1,5 +1,5 @@
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, IntegrationType, EcommercePlatform, SupportServiceType } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -12,8 +12,8 @@ async function main() {
       name: 'shopify',
       displayName: 'Shopify',
       description: 'Conecta tu tienda Shopify para sincronizar productos, pedidos y clientes automáticamente con COMODÍN IA',
-      type: 'ECOMMERCE',
-      platform: 'SHOPIFY',
+      type: IntegrationType.ECOMMERCE,
+      platform: EcommercePlatform.SHOPIFY,
       authType: 'api_key',
       authFields: {
         shop_domain: {
@@ -45,8 +45,8 @@ async function main() {
       name: 'woocommerce',
       displayName: 'WooCommerce',
       description: 'Integra tu tienda WooCommerce para gestionar productos y pedidos directamente desde WhatsApp',
-      type: 'ECOMMERCE',
-      platform: 'WOOCOMMERCE',
+      type: IntegrationType.ECOMMERCE,
+      platform: EcommercePlatform.WOOCOMMERCE,
       authType: 'api_key',
       authFields: {
         site_url: {
@@ -85,7 +85,7 @@ async function main() {
       name: 'stripe',
       displayName: 'Stripe',
       description: 'Procesa pagos seguros y gestiona suscripciones directamente desde WhatsApp con total seguridad',
-      type: 'PAYMENT',
+      type: IntegrationType.PAYMENT,
       authType: 'api_key',
       authFields: {
         publishable_key: {
@@ -202,7 +202,7 @@ async function main() {
       name: 'integration_support',
       displayName: 'Tickets de Soporte para Integraciones',
       description: 'Soporte técnico especializado para configuración y resolución de problemas con integraciones de terceros',
-      type: 'INTEGRATION_SUPPORT',
+      type: SupportServiceType.INTEGRATION_SUPPORT,
       price: 20.0,
       currency: 'USD',
       estimatedHours: 2,

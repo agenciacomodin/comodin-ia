@@ -238,12 +238,12 @@ export default function IntegrationsPage() {
             id={field}
             placeholder={config.placeholder}
             value={connectForm[field] || ''}
-            onChange={(e) => setConnectForm(prev => ({ ...prev, [field]: e.target.value }))}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setConnectForm((prev: any) => ({ ...prev, [field]: e.target.value }))}
           />
         ) : config.type === 'select' ? (
           <Select 
             value={connectForm[field] || ''} 
-            onValueChange={(value) => setConnectForm(prev => ({ ...prev, [field]: value }))}
+            onValueChange={(value: string) => setConnectForm((prev: any) => ({ ...prev, [field]: value }))}
           >
             <SelectTrigger>
               <SelectValue placeholder={config.placeholder} />
@@ -262,7 +262,7 @@ export default function IntegrationsPage() {
             type={config.type || 'text'}
             placeholder={config.placeholder}
             value={connectForm[field] || ''}
-            onChange={(e) => setConnectForm(prev => ({ ...prev, [field]: e.target.value }))}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setConnectForm((prev: any) => ({ ...prev, [field]: e.target.value }))}
           />
         )}
         {config.description && (
@@ -400,7 +400,7 @@ export default function IntegrationsPage() {
                 <p className="text-gray-600 mb-4">
                   Conecta herramientas para potenciar tu flujo de trabajo
                 </p>
-                <Button onClick={() => document.querySelector('[value="available"]')?.click()}>
+                <Button onClick={() => (document.querySelector('[value="available"]') as HTMLElement)?.click()}>
                   Ver integraciones disponibles
                 </Button>
               </CardContent>
