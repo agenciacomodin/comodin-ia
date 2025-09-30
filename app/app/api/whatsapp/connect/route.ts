@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
         name: 'whatsapp-business',
         displayName: 'WhatsApp Business',
         description: 'Integración con WhatsApp Business API de Meta',
-        type: 'MESSAGING',
-        platform: 'WHATSAPP',
+        type: 'SOCIAL_MEDIA',
+        platform: null,
         authType: 'API_KEY',
         authFields: {
           accessToken: { label: 'Access Token', type: 'password', required: true },

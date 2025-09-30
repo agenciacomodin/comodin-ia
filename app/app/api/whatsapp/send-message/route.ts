@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         }
       },
       update: {
-        lastContactAt: new Date()
+        lastContact: new Date()
       },
       create: {
         organizationId: session.user.organizationId,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         whatsappId: whatsappMessage.to,
         source: 'WHATSAPP',
         status: 'ACTIVE',
-        lastContactAt: new Date()
+        lastContact: new Date()
       }
     })
 

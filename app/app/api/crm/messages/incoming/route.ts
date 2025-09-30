@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
       },
       update: {
         name: contactName || undefined,
-        lastContactAt: messageTimestamp,
-        isActive: true,
+        lastContact: messageTimestamp,
+        
         status: 'ACTIVE'
       },
       create: {
@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
         whatsappId: phoneNumber,
         source: 'WHATSAPP',
         status: 'ACTIVE',
-        isActive: true,
-        lastContactAt: messageTimestamp
+        
+        lastContact: messageTimestamp
       }
     })
 
@@ -163,7 +163,7 @@ async function triggerAutomations(conversationId: string, messageId: string, org
     const automationRules = await prisma.automationRule.findMany({
       where: {
         organizationId,
-        isActive: true,
+        
         trigger: {
           in: ['MESSAGE_RECEIVED', 'FIRST_MESSAGE', 'KEYWORD_MATCH']
         }

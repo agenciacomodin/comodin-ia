@@ -1,0 +1,110 @@
+
+version: '3.8'
+
+services:
+  # Evolution API - WhatsApp Business Integration
+  evolution-api:
+    image: atendai/evolution-api:v2.0.10
+    container_name: evolution-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - evolution
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    environment:
+      # Server
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - CORS_ORIGIN=*
+      - CORS_METHODS=POST,GET,PUT,DELETE
+      - CORS_CREDENTIALS=true
+      
+      # Global API Key
+      - AUTHENTICATION_API_KEY=comodin_ia_evolution_api_key_2024
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      
+      # Log
+      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS
+      - LOG_COLOR=true
+      - LOG_BAILEYS=false
+      
+      # Instance
+      - CONFIG_SESSION_PHONE_CLIENT=COMODÍN IA
+      - CONFIG_SESSION_PHONE_NAME=COMODÍN IA WhatsApp Business
+      
+      # QR Code
+      - QRCODE_LIMIT=30
+      - QRCODE_COLOR=#198754
+      
+      # Database - Redis for session management
+      - DATABASE_ENABLED=true
+      - DATABASE_CONNECTION_URI=redis://:ComodinRedis2025@redis:6379/0
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://:ComodinRedis2025@redis:6379/1
+      
+      # Webhook
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_URL=https://tu-dominio.com/api/whatsapp/evolution/webhook
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=true
+      - WEBHOOK_GLOBAL_WEBHOOK_BASE64=false
+      
+      # Events to send to webhook
+      - WEBHOOK_EVENTS_APPLICATION_STARTUP=true
+      - WEBHOOK_EVENTS_QRCODE_UPDATED=true
+      - WEBHOOK_EVENTS_MESSAGES_SET=true
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_MESSAGES_UPDATE=true
+      - WEBHOOK_EVENTS_SEND_MESSAGE=true
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=true
+      - WEBHOOK_EVENTS_CALL=true
+      
+      # Typebot Integration (opcional)
+      - TYPEBOT_ENABLED=false
+      
+      # Chatwoot Integration (opcional)
+      - CHATWOOT_ENABLED=false
+      
+      # S3 for media storage (opcional, usar tus credenciales AWS)
+      - S3_ENABLED=false
+      
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for Evolution API
+  redis:
+    image: redis:7-alpine
+    container_name: evolution-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - evolution
+    volumes:
+      - redis_data:/data
+    command: redis-server --requirepass ComodinRedis2025
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  evolution:
+    driver: bridge
+
+volumes:
+  evolution_instances:
+    driver: local
+  evolution_store:
+    driver: local
+  redis_data:
+    driver: local

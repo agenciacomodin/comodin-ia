@@ -23,7 +23,8 @@ import {
   TestTube2,
   Clock,
   Plug,
-  CreditCard
+  CreditCard,
+  Smartphone
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -59,6 +60,12 @@ const navigationItems = [
     name: 'Entrenar IA',
     href: '/knowledge-base',
     icon: BookOpen
+  },
+  {
+    name: 'WhatsApp Business',
+    href: '/configuraciones/whatsapp',
+    icon: Smartphone,
+    description: 'Evolution API'
   },
   {
     name: 'Integraciones',
