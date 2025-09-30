@@ -195,7 +195,7 @@ export class WhatsAppService {
           }
         },
         update: {
-          lastContactAt: timestamp
+          lastContact: timestamp
         },
         create: {
           organizationId,
@@ -204,7 +204,7 @@ export class WhatsAppService {
           whatsappId: phoneNumber,
           source: 'WHATSAPP',
           status: 'ACTIVE',
-          lastContactAt: timestamp
+          lastContact: timestamp
         }
       })
 
@@ -239,7 +239,7 @@ export class WhatsAppService {
           senderId: contact.id,
           content: messageText,
           type: messageType,
-          direction: 'INBOUND',
+          direction: 'INCOMING',
           status: 'DELIVERED',
           whatsappMessageId: messageId,
           metadata: {

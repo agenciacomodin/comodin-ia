@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         senderId: session.user.id,
         content: message,
         type: type,
-        direction: 'OUTBOUND',
+        direction: 'OUTGOING',
         status: 'SENT',
         whatsappMessageId: result.key?.id,
         metadata: {

@@ -23,9 +23,8 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             slug: true,
-            domain: true,
             logo: true,
-            settings: true
+            status: true
           }
         }
       }

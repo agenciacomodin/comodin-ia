@@ -126,8 +126,8 @@ async function processIncomingMessages(messages: any[], organizationId: string) 
           conversationId: conversation.id,
           senderId: contact.id,
           content: messageContent,
-          type: 'text',
-          direction: 'INBOUND',
+          type: 'TEXT',
+          direction: 'INCOMING',
           status: 'DELIVERED',
           whatsappMessageId: messageId,
           metadata: {

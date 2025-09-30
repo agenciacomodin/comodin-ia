@@ -83,26 +83,33 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Buscar o crear conversación
-    const conversation = await prisma.conversation.upsert({
+    // Buscar conversación abierta o crear nueva
+    let conversation = await prisma.conversation.findFirst({
       where: {
-        organizationId_contactId: {
-          organizationId: session.user.organizationId,
-          contactId: contact.id
-        }
-      },
-      update: {
-        lastMessageAt: new Date()
-      },
-      create: {
         organizationId: session.user.organizationId,
         contactId: contact.id,
-        channel: 'WHATSAPP',
-        status: 'OPEN',
-        lastMessageAt: new Date(),
-        unreadCount: 0
+        status: 'OPEN'
       }
     })
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          organizationId: session.user.organizationId,
+          contactId: contact.id,
+          status: 'OPEN',
+          lastMessageAt: new Date(),
+          unreadCount: 0
+        }
+      })
+    } else {
+      conversation = await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          lastMessageAt: new Date()
+        }
+      })
+    }
 
     // Guardar mensaje en la base de datos
     const savedMessage = await prisma.message.create({
@@ -111,7 +118,7 @@ export async function POST(request: NextRequest) {
         senderId: session.user.id,
         content: type === 'text' ? message : `[${type.toUpperCase()}] ${message.filename || message.caption || 'Archivo'}`,
         type: type.toUpperCase(),
-        direction: 'OUTBOUND',
+        direction: 'OUTGOING',
         status: 'SENT',
         whatsappMessageId: result.messageId,
         sentAt: new Date()

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         }
       },
       update: {
-        status: 'CONNECTING',
+        status: 'PENDING',
         config: {
           instanceName,
           evolutionUrl,
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       create: {
         organizationId,
         integrationId: 'whatsapp-evolution',
-        status: 'CONNECTING',
+        status: 'PENDING',
         config: {
           instanceName,
           evolutionUrl,

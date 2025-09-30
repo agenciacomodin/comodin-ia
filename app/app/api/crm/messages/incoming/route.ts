@@ -74,30 +74,37 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Buscar o crear conversación
-    const conversation = await prisma.conversation.upsert({
+    // Buscar conversación abierta o crear nueva
+    let conversation = await prisma.conversation.findFirst({
       where: {
-        organizationId_contactId: {
-          organizationId,
-          contactId: contact.id
-        }
-      },
-      update: {
-        lastMessageAt: messageTimestamp,
-        unreadCount: {
-          increment: 1
-        },
-        status: 'OPEN'
-      },
-      create: {
         organizationId,
         contactId: contact.id,
-        channel: 'WHATSAPP',
-        status: 'OPEN',
-        lastMessageAt: messageTimestamp,
-        unreadCount: 1
+        status: 'OPEN'
       }
     })
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          organizationId,
+          contactId: contact.id,
+          status: 'OPEN',
+          lastMessageAt: messageTimestamp,
+          unreadCount: 1
+        }
+      })
+    } else {
+      conversation = await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          lastMessageAt: messageTimestamp,
+          unreadCount: {
+            increment: 1
+          },
+          status: 'OPEN'
+        }
+      })
+    }
 
     // Preparar contenido del mensaje según el tipo
     let messageContent = content
@@ -119,11 +126,11 @@ export async function POST(request: NextRequest) {
     const message = await prisma.message.create({
       data: {
         conversationId: conversation.id,
-        senderId: contact.id,
+        sentBy: contact.id,
         content: messageContent,
         type: type.toUpperCase(),
-        direction: 'INBOUND',
-        status: 'DELIVERED',
+        direction: 'INCOMING',
+        organizationId,
         whatsappMessageId: messageId,
         metadata: messageMetadata,
         sentAt: messageTimestamp
@@ -163,11 +170,15 @@ async function triggerAutomations(conversationId: string, messageId: string, org
     const automationRules = await prisma.automationRule.findMany({
       where: {
         organizationId,
-        
-        trigger: {
-          in: ['MESSAGE_RECEIVED', 'FIRST_MESSAGE', 'KEYWORD_MATCH']
+        isActive: true
+      },
+      include: {
+        conditions: true,
+        actions: {
+          orderBy: { executionOrder: 'asc' }
         }
-      }
+      },
+      orderBy: { priority: 'asc' }
     })
 
     if (automationRules.length === 0) {
@@ -182,7 +193,7 @@ async function triggerAutomations(conversationId: string, messageId: string, org
           include: {
             contact: true,
             messages: {
-              where: { direction: 'INBOUND' },
+              where: { direction: 'INCOMING' },
               orderBy: { sentAt: 'asc' },
               take: 1
             }
@@ -200,26 +211,44 @@ async function triggerAutomations(conversationId: string, messageId: string, org
     for (const rule of automationRules) {
       let shouldTrigger = false
 
-      switch (rule.trigger) {
-        case 'MESSAGE_RECEIVED':
-          shouldTrigger = true
-          break
-        
-        case 'FIRST_MESSAGE':
-          shouldTrigger = isFirstMessage
-          break
-        
-        case 'KEYWORD_MATCH':
-          const keywords = (rule.conditions as any)?.keywords || []
-          shouldTrigger = keywords.some((keyword: string) => 
-            messageContent.includes(keyword.toLowerCase())
-          )
-          break
+      // Evaluar todas las condiciones de la regla
+      if (rule.conditions && rule.conditions.length > 0) {
+        // Por simplicidad, aplicamos lógica AND a todas las condiciones
+        shouldTrigger = rule.conditions.every(condition => {
+          switch (condition.type) {
+            case 'FIRST_MESSAGE':
+              return isFirstMessage
+            
+            case 'KEYWORDS_CONTAINS':
+              if (!condition.keywords || condition.keywords.length === 0) return true
+              return condition.keywords.some((keyword: string) => 
+                messageContent.includes(keyword.toLowerCase())
+              )
+            
+            default:
+              return true // Condiciones no implementadas se consideran como verdaderas
+          }
+        })
+      } else {
+        // Si no hay condiciones, se ejecuta siempre
+        shouldTrigger = true
       }
 
       if (shouldTrigger) {
-        // Ejecutar la acción de la regla
-        await executeAutomationAction(rule, conversationId, messageId)
+        // Ejecutar las acciones de la regla
+        for (const action of rule.actions) {
+          await executeAutomationAction(action, conversationId, messageId)
+        }
+        
+        // Actualizar estadísticas de la regla
+        await prisma.automationRule.update({
+          where: { id: rule.id },
+          data: {
+            executionCount: { increment: 1 },
+            successCount: { increment: 1 },
+            lastExecutedAt: new Date()
+          }
+        })
       }
     }
   } catch (error) {
@@ -230,14 +259,11 @@ async function triggerAutomations(conversationId: string, messageId: string, org
 /**
  * Ejecuta una acción de automatización
  */
-async function executeAutomationAction(rule: any, conversationId: string, messageId: string) {
+async function executeAutomationAction(action: any, conversationId: string, messageId: string) {
   try {
-    const action = rule.action
-    const actionData = rule.actionData || {}
-
-    switch (action) {
-      case 'SEND_MESSAGE':
-        if (actionData.message) {
+    switch (action.type) {
+      case 'AUTO_REPLY':
+        if (action.replyMessage) {
           // Enviar mensaje automático
           const conversation = await prisma.conversation.findUnique({
             where: { id: conversationId },
@@ -245,26 +271,22 @@ async function executeAutomationAction(rule: any, conversationId: string, messag
           })
 
           if (conversation) {
-            await WhatsAppService.sendMessage(rule.organizationId, {
-              to: conversation.contact.phone,
-              type: 'text',
-              text: { body: actionData.message }
-            })
+            // Solo guardar el mensaje - el envío real se maneja por otro proceso
 
             // Guardar el mensaje enviado en la base de datos
             await prisma.message.create({
               data: {
+                organizationId: conversation.organizationId,
                 conversationId,
-                senderId: 'system', // ID del sistema
-                content: actionData.message,
+                sentBy: 'system', // ID del sistema
+                content: action.replyMessage,
                 type: 'TEXT',
-                direction: 'OUTBOUND',
-                status: 'SENT',
+                direction: 'OUTGOING',
                 sentAt: new Date(),
                 metadata: {
                   automation: {
-                    ruleId: rule.id,
-                    ruleName: rule.name,
+                    actionId: action.id,
+                    actionType: action.type,
                     triggeredBy: messageId
                   }
                 }
@@ -275,7 +297,7 @@ async function executeAutomationAction(rule: any, conversationId: string, messag
         break
 
       case 'ADD_TAG':
-        if (actionData.tagName) {
+        if (action.tagName) {
           const conversation = await prisma.conversation.findUnique({
             where: { id: conversationId },
             include: { contact: true }
