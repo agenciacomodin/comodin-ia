@@ -1,0 +1,2644 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+  output = "../node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// Enum para roles de usuario en el sistema multi-tenant
+enum UserRole {
+  PROPIETARIO    // Admin total de la organización
+  AGENTE         // Empleado que atiende clientes
+  DISTRIBUIDOR   // Socio que gestiona clientes
+  SUPER_ADMIN    // Rol de supervisión de COMODÍN IA
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+enum SubscriptionPlan {
+  FREE       // Plan gratuito
+  STARTER    // Plan básico
+  PREMIUM    // Plan intermedio  
+  ENTERPRISE // Plan empresarial
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  UNPAID
+  INCOMPLETE
+  TRIALING
+}
+
+enum PaymentProvider {
+  STRIPE
+  MERCADO_PAGO
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum AIUsageType {
+  CHAT_RESPONSE          // Respuesta de chat con IA
+  TEXT_ANALYSIS          // Análisis de texto
+  SENTIMENT_ANALYSIS     // Análisis de sentimientos
+  CONTENT_GENERATION     // Generación de contenido
+  TRANSLATION           // Traducción
+  SUMMARY               // Resumen de texto
+  OTHER                 // Otros usos
+}
+
+enum TransactionType {
+  WALLET_RECHARGE       // Recarga de billetera
+  AI_USAGE_DEDUCTION    // Descuento por uso de IA
+  REFUND                // Reembolso
+  ADJUSTMENT            // Ajuste manual
+}
+
+
+
+// Tabla Organizations - Base del multi-tenant (aislamiento por tenant)
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // URL friendly identifier
+  description String?
+  country     String?
+  phone       String?
+  email       String?
+  website     String?
+  logo        String?  // URL de imagen
+  status      OrganizationStatus @default(TRIAL)
+  
+  // Sistema de suscripciones
+  currentPlan       SubscriptionPlan @default(FREE)
+  subscriptionId    String?          // ID de la suscripción activa
+  billingEmail      String?          // Email para facturación
+  
+  // Límites del plan actual
+  maxUsers          Int              @default(1)    // Usuarios permitidos
+  maxMessages       Int              @default(100)  // Mensajes por mes
+  maxIntegrations   Int              @default(1)    // Integraciones permitidas
+  hasAdvancedFeatures Boolean        @default(false) // Funcionalidades premium
+  
+  // Control de uso (reseteo mensual)
+  currentUsers      Int              @default(0)
+  currentMessages   Int              @default(0)
+  usageResetDate    DateTime?        // Fecha del próximo reseteo
+  
+  // Configuración de la organización
+  timezone    String   @default("America/Mexico_City")
+  currency    String   @default("MXN")
+  language    String   @default("es")
+  
+  // Fechas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  users                User[]
+  invitations          Invitation[]
+  subscriptions        Subscription[]
+  payments             Payment[]
+  aiWallet             AIWallet?
+  financialTransactions FinancialTransaction[]
+  
+  // Centro de Comunicación (CRM)
+  contacts             Contact[]
+  contactTags          ContactTag[]
+  contactNotes         ContactNote[]
+  conversations        Conversation[]
+  messages             Message[]
+
+  // Sistema de seguimientos mejorado
+  followUpSequences    FollowUpSequence[]
+  followUpExecutions   FollowUpExecution[]
+  
+  // Canales de WhatsApp y Respuestas Rápidas
+  whatsappChannels     WhatsAppChannel[]
+  quickReplies         QuickReply[]
+  
+  // Automatizaciones (IA Activa)
+  automationRules      AutomationRule[]
+  aiAnalysisCache      AIAnalysisCache[]
+  
+  // Base de Conocimiento
+  knowledgeSources     KnowledgeSource[]
+  knowledgeUsage       KnowledgeUsage[]
+  
+  // Cache Inteligente de IA
+  aiCache              AICache[]
+  
+  // Sistema de Integraciones
+  integrations         OrganizationIntegration[]
+  
+  // Sistema de Campañas (La Máquina de Crecimiento)
+  messageTemplates     MessageTemplate[]
+  campaigns            Campaign[]
+  campaignPreviews     CampaignAudiencePreview[]
+  
+  // Sistema de Agentes RAG Avanzado
+  ragAgents            RAGAgent[]
+  ragAgentConversations RAGAgentConversation[]
+  ragAgentMessages     RAGAgentMessage[]
+  
+  // Sistema de Servicios Extras y Soporte Técnico
+  supportTickets       SupportTicket[]
+  
+  @@map("organizations")
+}
+
+// Tabla Users con aislamiento por organización
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  name              String?
+  fullName          String?
+  image             String?
+  phone             String?
+  country           String?
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Sistema de roles
+  role              UserRole  @default(AGENTE)
+  
+  // Configuración del usuario
+  isActive          Boolean   @default(true)
+  lastLogin         DateTime?
+  timezone          String?
+  language          String?   @default("es")
+  
+  // Fechas
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // NextAuth relations
+  accounts          Account[]
+  sessions          Session[]
+  
+  // Respuestas Rápidas creadas y modificadas
+  createdQuickReplies QuickReply[]
+  modifiedQuickReplies QuickReply[] @relation("QuickReplyModifiedBy")
+  
+  // Sistema de Integraciones
+  configuredIntegrations OrganizationIntegration[]
+  
+  // QR Code Authentication
+  qrSessions QRSession[]
+  
+  @@index([organizationId])
+  @@index([email])
+  @@map("users")
+}
+
+// Tabla PasswordResetToken - Tokens para recuperación de contraseña
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String   // Email del usuario
+  token     String   @unique // Token único para la recuperación
+  expiresAt DateTime // Fecha de expiración
+  used      Boolean  @default(false) // Si ya fue utilizado
+  createdAt DateTime @default(now())
+  
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// Tabla Invitations - Sistema de invitaciones de equipo
+model Invitation {
+  id             String           @id @default(cuid())
+  email          String
+  token          String           @unique
+  role           UserRole         @default(AGENTE)
+  status         InvitationStatus @default(PENDING)
+  
+  // Multi-tenant: Invitación específica por organización
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Usuario que envió la invitación
+  invitedBy      String           // User ID
+  invitedByName  String           // Nombre del invitador para el email
+  
+  // Datos opcionales para pre-llenar el registro
+  firstName      String?
+  lastName       String?
+  message        String?          // Mensaje personalizado
+  
+  // Control de expiración
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  
+  // Fechas
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  @@index([organizationId])
+  @@index([email])
+  @@index([token])
+  @@map("invitations")
+}
+
+// Tabla Subscriptions - Manejo de suscripciones y pagos recurrentes
+model Subscription {
+  id                  String              @id @default(cuid())
+  
+  // Relación con la organización
+  organizationId      String
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Detalles de la suscripción
+  plan                SubscriptionPlan
+  status              SubscriptionStatus  @default(TRIALING)
+  paymentProvider     PaymentProvider
+  
+  // IDs externos de los proveedores de pago
+  stripeSubscriptionId     String?        // ID de Stripe
+  stripeCustomerId         String?        // Customer ID de Stripe
+  mercadopagoPreapprovalId String?        // ID de preapproval de MercadoPago
+  mercadopagoPayerId       String?        // Payer ID de MercadoPago
+  
+  // Detalles de facturación
+  pricePerMonth       Decimal             // Precio mensual en la moneda local
+  currency            String              @default("USD")
+  billingCycle        String              @default("monthly") // monthly, yearly
+  
+  // Fechas importantes
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelAtPeriodEnd   Boolean             @default(false)
+  canceledAt          DateTime?
+  endedAt             DateTime?
+  trialStart          DateTime?
+  trialEnd            DateTime?
+  
+  // Metadata
+  metadata            Json?               // Información adicional
+  
+  // Fechas de control
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  
+  // Relaciones
+  payments           Payment[]
+  
+  @@index([organizationId])
+  @@index([stripeSubscriptionId])
+  @@index([mercadopagoPreapprovalId])
+  @@map("subscriptions")
+}
+
+// Tabla Payments - Registro de pagos individuales
+model Payment {
+  id                     String          @id @default(cuid())
+  
+  // Relaciones
+  organizationId         String
+  organization           Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId         String?
+  subscription           Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  
+  // Detalles del pago
+  amount                 Decimal         // Monto pagado
+  currency               String          @default("USD")
+  status                 PaymentStatus   @default(PENDING)
+  paymentProvider        PaymentProvider
+  
+  // IDs externos de los proveedores
+  stripePaymentIntentId  String?         // Payment Intent ID de Stripe
+  stripeChargeId         String?         // Charge ID de Stripe
+  mercadopagoPaymentId   String?         // Payment ID de MercadoPago
+  
+  // Detalles de facturación
+  description            String?         // Descripción del pago
+  invoiceUrl             String?         // URL de la factura
+  receiptUrl             String?         // URL del recibo
+  
+  // Fechas
+  paidAt                 DateTime?       // Fecha de pago exitoso
+  failedAt               DateTime?       // Fecha de pago fallido
+  refundedAt             DateTime?       // Fecha de reembolso
+  
+  // Información adicional
+  failureReason          String?         // Razón del fallo
+  metadata               Json?           // Información adicional
+  
+  // Control de fechas
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([stripePaymentIntentId])
+  @@index([mercadopagoPaymentId])
+  @@map("payments")
+}
+
+// Tabla AIWallet - Billetera virtual para consumo de IA
+model AIWallet {
+  id             String        @id @default(cuid())
+  
+  // Relación con la organización (1:1)
+  organizationId String        @unique
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Saldo actual de la billetera
+  balance        Decimal       @default(0.00) @db.Decimal(10, 2)
+  currency       String        @default("USD")
+  
+  // Estadísticas de uso
+  totalSpent     Decimal       @default(0.00) @db.Decimal(10, 2)  // Total gastado en IA
+  totalRecharged Decimal       @default(0.00) @db.Decimal(10, 2)  // Total recargado
+  transactionCount Int         @default(0)    // Número de transacciones
+  
+  // Control de alertas de saldo bajo
+  lowBalanceThreshold Decimal  @default(10.00) @db.Decimal(10, 2)
+  alertsEnabled       Boolean  @default(true)
+  lastLowBalanceAlert DateTime?
+  
+  // Control de fechas
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  // Relaciones
+  aiTransactions AITransaction[]
+  
+  @@map("ai_wallets")
+}
+
+// Tabla AITransaction - Registro detallado de cada uso de IA
+model AITransaction {
+  id             String       @id @default(cuid())
+  
+  // Relación con la billetera
+  walletId       String
+  wallet         AIWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  
+  // Relación con el proveedor de IA
+  providerId     String?      // ID del proveedor configurado
+  provider       AIProvider?  @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  
+  // Detalles del uso de IA (mantenemos providerName para compatibilidad)
+  usageType      AIUsageType  // Tipo de uso de IA
+  providerName   String       // Nombre del proveedor (OpenAI, Claude, etc.)
+  modelUsed      String?      // Modelo específico usado
+  
+  // Costos de la transacción
+  providerCost   Decimal      @db.Decimal(10, 6) // Costo que nos cobró el proveedor
+  clientCost     Decimal      @db.Decimal(10, 6) // Costo cobrado al cliente (providerCost * 1.30)
+  margin         Decimal      @db.Decimal(5, 4) @default(0.30) // Margen aplicado (30%)
+  
+  // Detalles técnicos del uso
+  inputTokens    Int?         // Tokens de entrada
+  outputTokens   Int?         // Tokens de salida
+  totalTokens    Int?         // Total de tokens procesados
+  processingTime Int?         // Tiempo de procesamiento en ms
+  
+  // Metadatos de la transacción
+  description    String?      // Descripción del uso
+  metadata       Json?        // Información adicional (request info, response info, etc.)
+  
+  // Usuario que realizó la acción
+  userId         String?      // ID del usuario que usó la IA
+  userName       String?      // Nombre del usuario para el historial
+  
+  // Balance después de la transacción
+  balanceAfter   Decimal      @db.Decimal(10, 2) // Saldo después del descuento
+  
+  // Control de fechas
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@index([walletId])
+  @@index([usageType])
+  @@index([createdAt])
+  @@map("ai_transactions")
+}
+
+// Tabla FinancialTransaction - Historial completo de transacciones financieras
+model FinancialTransaction {
+  id                String          @id @default(cuid())
+  
+  // Relación con la organización
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Tipo y detalles de la transacción
+  type              TransactionType
+  amount            Decimal         @db.Decimal(10, 2) // Monto de la transacción
+  currency          String          @default("USD")
+  
+  // Descripción y referencia
+  description       String
+  reference         String?         // Referencia externa (stripe payment id, etc.)
+  
+  // Detalles específicos según el tipo
+  paymentProvider   PaymentProvider? // Si es recarga: proveedor usado
+  aiTransactionId   String?         // Si es uso de IA: referencia a la transacción
+  
+  // Saldos antes y después de la transacción  
+  balanceBefore     Decimal         @db.Decimal(10, 2)
+  balanceAfter      Decimal         @db.Decimal(10, 2)
+  
+  // Usuario que realizó la transacción
+  userId            String?         // Usuario responsable de la transacción
+  userName          String?         // Nombre del usuario para el historial
+  
+  // Información adicional
+  metadata          Json?           // Información adicional
+  
+  // Control de fechas
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@index([organizationId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("financial_transactions")
+}
+
+// Tabla AIProviders - Gestión centralizada de proveedores de IA (Super Admin only)
+model AIProvider {
+  id              String   @id @default(cuid())
+  
+  // Información del proveedor
+  name            String   // Nombre del proveedor (OpenAI, Gemini, Claude, etc.)
+  displayName     String   // Nombre para mostrar en UI
+  description     String?  // Descripción del proveedor
+  logoUrl         String?  // URL del logo del proveedor
+  
+  // Configuración técnica
+  apiUrl          String   // URL base de la API
+  apiKeyName      String   @default("API_KEY") // Nombre del campo de la clave (API_KEY, ACCESS_TOKEN, etc.)
+  encryptedApiKey String   // Clave API encriptada
+  
+  // Configuración del modelo
+  defaultModel    String?  // Modelo por defecto
+  availableModels Json?    // Lista de modelos disponibles
+  
+  // Configuración de precios
+  inputPricePerToken  Decimal? @db.Decimal(10, 8) // Precio por token de entrada
+  outputPricePerToken Decimal? @db.Decimal(10, 8) // Precio por token de salida
+  currency            String   @default("USD")
+  
+  // Estado y configuración
+  isActive        Boolean  @default(true)  // Si el proveedor está activo
+  isDefault       Boolean  @default(false) // Si es el proveedor por defecto
+  maxTokensPerRequest Int? // Límite de tokens por request
+  rateLimitPerMinute  Int? // Límite de requests por minuto
+  
+  // Metadatos
+  metadata        Json?    // Configuración adicional específica del proveedor
+  
+  // Auditoria - Solo Super Admin puede gestionar
+  createdBy       String   // ID del Super Admin que lo creó
+  createdByName   String   // Nombre del Super Admin para auditoria
+  updatedBy       String?  // ID del último Super Admin que lo modificó
+  updatedByName   String?  // Nombre del último Super Admin que lo modificó
+  
+  // Control de fechas
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastUsedAt      DateTime? // Última vez que se usó este proveedor
+  
+  // Relaciones
+  transactions    AITransaction[] // Transacciones que usaron este proveedor
+  
+  @@unique([name]) // Nombre del proveedor debe ser único
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([createdBy])
+  @@map("ai_providers")
+}
+
+// ===========================================
+// CENTRO DE COMUNICACIÓN (CRM)
+// ===========================================
+
+enum ContactStatus {
+  ACTIVE        // Contacto activo
+  INACTIVE      // Contacto inactivo
+  BLOCKED       // Contacto bloqueado
+  ARCHIVED      // Contacto archivado
+}
+
+enum ConversationStatus {
+  OPEN          // Conversación abierta/activa
+  PENDING       // Pendiente de respuesta
+  RESOLVED      // Resuelta/cerrada
+  TRANSFERRED   // Transferida a otro agente
+  ARCHIVED      // Archivada
+}
+
+enum ConversationPriority {
+  LOW           // Prioridad baja
+  MEDIUM        // Prioridad media
+  HIGH          // Prioridad alta
+  URGENT        // Urgente
+}
+
+enum MessageType {
+  TEXT          // Mensaje de texto
+  IMAGE         // Imagen
+  DOCUMENT      // Documento
+  AUDIO         // Audio/Nota de voz
+  VIDEO         // Video
+  LOCATION      // Ubicación
+  CONTACT       // Contacto compartido
+  SYSTEM        // Mensaje del sistema
+}
+
+enum MessageDirection {
+  INCOMING      // Mensaje entrante (del cliente)
+  OUTGOING      // Mensaje saliente (del agente)
+}
+
+// Tabla Contact - Información de contactos/clientes
+model Contact {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica del contacto
+  name             String        // Nombre del contacto
+  phone            String        // Número de teléfono (único por organización)
+  email            String?       // Email opcional
+  avatar           String?       // URL del avatar/foto de perfil
+  
+  // Información adicional
+  firstName        String?       // Nombre
+  lastName         String?       // Apellido
+  company          String?       // Empresa/Organización
+  jobTitle         String?       // Cargo/Puesto
+  address          String?       // Dirección
+  city             String?       // Ciudad
+  country          String?       // País
+  timezone         String?       // Zona horaria del contacto
+  
+  // Estado y clasificación
+  status           ContactStatus @default(ACTIVE)
+  isVip            Boolean       @default(false) // Contacto VIP
+  
+  // Información de WhatsApp
+  whatsappId       String?       // ID interno de WhatsApp
+  whatsappName     String?       // Nombre en WhatsApp
+  lastSeen         DateTime?     // Última conexión en WhatsApp
+  
+  // Metadatos CRM
+  source           String?       // Origen del contacto (web, referido, etc.)
+  leadScore        Int?          // Puntaje de lead (0-100)
+  lifetimeValue    Decimal?      @db.Decimal(10, 2) // Valor de vida del cliente
+  
+  // Fechas importantes
+  firstContact     DateTime?     // Primera vez que contactó
+  lastContact      DateTime?     // Último contacto
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relaciones
+  conversations    Conversation[]
+  tags             ContactTag[]
+  notes            ContactNote[]
+  
+  @@unique([organizationId, phone]) // Un número único por organización
+  @@index([organizationId])
+  @@index([phone])
+  @@index([status])
+  @@index([isVip])
+  @@map("contacts")
+}
+
+// Tabla ContactTag - Sistema de etiquetas para clasificar contactos
+model ContactTag {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con el contacto
+  contactId        String
+  contact          Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  // Información de la etiqueta
+  name             String        // Nombre de la etiqueta (ej: "Cliente VIP", "Lead Caliente")
+  color            String?       // Color hexadecimal para la UI (#FF5733)
+  description      String?       // Descripción opcional
+  
+  // Usuario que asignó la etiqueta
+  createdBy        String?       // ID del usuario
+  createdByName    String?       // Nombre del usuario para auditoria
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  
+  @@unique([contactId, name]) // No duplicar etiquetas en el mismo contacto
+  @@index([organizationId])
+  @@index([contactId])
+  @@map("contact_tags")
+}
+
+// Tabla ContactNote - Notas internas sobre contactos (no visibles al cliente)
+model ContactNote {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con el contacto
+  contactId        String
+  contact          Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  // Contenido de la nota
+  content          String        @db.Text // Nota interna del equipo
+  isImportant      Boolean       @default(false) // Marcar como importante
+  
+  // Usuario que creó la nota
+  createdBy        String        // ID del usuario
+  createdByName    String        // Nombre del usuario para mostrar
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  @@index([organizationId])
+  @@index([contactId])
+  @@map("contact_notes")
+}
+
+// Enums para el sistema de seguimientos mejorado
+enum FollowUpStatus {
+  ACTIVE        // Secuencia activa, esperando
+  PAUSED        // Pausada temporalmente
+  COMPLETED     // Completada (respuesta recibida)
+  CANCELLED     // Cancelada manualmente
+  EXPIRED       // Expirada sin completar
+}
+
+enum FollowUpTriggerType {
+  MANUAL           // Activación manual
+  TAG_BASED        // Por etiquetas de contacto
+  NO_RESPONSE      // Sin respuesta por X tiempo
+  CONVERSATION_STATUS // Por estado de conversación
+}
+
+enum FollowUpChannel {
+  WHATSAPP_QR      // WhatsApp QR/Business
+  WHATSAPP_API     // WhatsApp API oficial
+  INSTAGRAM        // Instagram
+  FACEBOOK         // Facebook Messenger
+  SMS              // SMS
+  EMAIL            // Email
+}
+
+enum TimeUnit {
+  MINUTES
+  HOURS
+  DAYS
+}
+
+// Tabla principal de secuencias de seguimiento
+model FollowUpSequence {
+  id               String              @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica
+  name             String              // Nombre de la secuencia
+  description      String?             @db.Text // Descripción opcional
+  isActive         Boolean             @default(true) // Si está activa
+  
+  // Configuración de disparadores
+  triggerType      FollowUpTriggerType @default(MANUAL)
+  triggerTags      String[]            // Array de etiquetas que activan la secuencia
+  triggerChannels  FollowUpChannel[]   // Canales donde se ejecutará
+  
+  // Condiciones de activación
+  noResponseTime   Int                 @default(24) // Tiempo sin respuesta
+  noResponseUnit   TimeUnit           @default(HOURS) // Unidad de tiempo
+  
+  // Límites y configuración
+  maxAttempts      Int                @default(3) // Máximo número de intentos
+  stopOnReply      Boolean            @default(true) // Parar si el contacto responde
+  
+  // Usuario que creó la secuencia
+  createdBy        String             // ID del usuario
+  createdByName    String             // Nombre del usuario
+  
+  // Fechas
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  
+  // Relaciones
+  steps            FollowUpStep[]
+  executions       FollowUpExecution[]
+  
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([triggerType])
+  @@map("followup_sequences")
+}
+
+// Pasos individuales dentro de una secuencia
+model FollowUpStep {
+  id               String           @id @default(cuid())
+  
+  // Relación con la secuencia
+  sequenceId       String
+  sequence         FollowUpSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  
+  // Orden del paso
+  stepOrder        Int              // Orden del paso (1, 2, 3, etc.)
+  
+  // Configuración del paso
+  waitTime         Int              // Tiempo de espera antes de este paso
+  waitUnit         TimeUnit         @default(HOURS) // Unidad de tiempo
+  
+  // Contenido del mensaje
+  messageContent   String           @db.Text // Contenido con variables {{nombre_contacto}}
+  
+  // Canales para este paso específico
+  channels         FollowUpChannel[] // Canales donde enviar este paso
+  
+  // Estado del paso
+  isActive         Boolean          @default(true)
+  
+  // Fechas
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  // Relaciones
+  executions       FollowUpStepExecution[]
+  
+  @@index([sequenceId])
+  @@index([stepOrder])
+  @@map("followup_steps")
+}
+
+// Ejecuciones de secuencias para conversaciones específicas
+model FollowUpExecution {
+  id               String              @id @default(cuid())
+  
+  // Multi-tenant
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con la secuencia
+  sequenceId       String
+  sequence         FollowUpSequence    @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  
+  // Conversación objetivo
+  conversationId   String
+  conversation     Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Estado de la ejecución
+  status           FollowUpStatus      @default(ACTIVE)
+  currentStep      Int                 @default(1) // Paso actual en ejecución
+  totalSteps       Int                 // Total de pasos cuando se inició
+  
+  // Información de seguimiento
+  lastMessageSent  DateTime?           // Último mensaje enviado por nosotros
+  lastReplyReceived DateTime?          // Última respuesta recibida del contacto
+  nextScheduled    DateTime?           // Próxima ejecución programada
+  
+  // Contadores
+  messagesSent     Int                 @default(0) // Total mensajes enviados
+  repliesReceived  Int                 @default(0) // Total respuestas recibidas
+  
+  // Usuario responsable
+  createdBy        String              // ID del usuario que activó
+  createdByName    String              // Nombre del usuario
+  
+  // Control de fechas
+  startedAt        DateTime            @default(now())
+  completedAt      DateTime?           // Cuando se completó
+  lastExecutedAt   DateTime?           // Última vez que se ejecutó un paso
+  
+  // Fechas
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relaciones
+  stepExecutions   FollowUpStepExecution[]
+  
+  @@unique([conversationId, sequenceId]) // Una secuencia por conversación
+  @@index([organizationId])
+  @@index([status])
+  @@index([nextScheduled])
+  @@map("followup_executions")
+}
+
+// Ejecuciones de pasos individuales
+model FollowUpStepExecution {
+  id               String              @id @default(cuid())
+  
+  // Relación con la ejecución principal
+  executionId      String
+  execution        FollowUpExecution   @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  
+  // Relación con el paso
+  stepId           String
+  step             FollowUpStep        @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  
+  // Estado del paso
+  status           FollowUpStatus      @default(ACTIVE)
+  scheduledFor     DateTime?           // Cuándo está programado
+  sentAt           DateTime?           // Cuándo fue enviado
+  
+  // Mensaje enviado
+  messageContent   String              @db.Text // Mensaje final (con variables resueltas)
+  channels         FollowUpChannel[]   // Canales donde se envió
+  
+  // IDs de mensajes externos (para tracking)
+  whatsappMessageId String?            // ID en WhatsApp
+  whatsappChannelId String?            // Canal de WhatsApp usado
+  
+  // Resultados
+  delivered        Boolean             @default(false)
+  read             Boolean             @default(false)
+  replied          Boolean             @default(false)
+  
+  // Error handling
+  errorMessage     String?             @db.Text
+  retryCount       Int                 @default(0)
+  maxRetries       Int                 @default(3)
+  
+  // Fechas
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  @@index([executionId])
+  @@index([stepId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@map("followup_step_executions")
+}
+
+// Tabla Conversation - Conversaciones/Chats individuales
+model Conversation {
+  id               String               @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con el contacto
+  contactId        String
+  contact          Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  // Estado de la conversación
+  status           ConversationStatus   @default(OPEN)
+  priority         ConversationPriority @default(MEDIUM)
+  
+  // Asignación de agente
+  assignedAgentId  String?              // ID del agente asignado
+  assignedAgentName String?             // Nombre del agente asignado
+  
+  // Información de la conversación
+  title            String?              // Título/Subject opcional
+  summary          String?              @db.Text // Resumen de la conversación
+  
+  // Métricas de la conversación
+  messageCount     Int                  @default(0) // Total de mensajes
+  unreadCount      Int                  @default(0) // Mensajes no leídos por el agente
+  
+  // Información temporal
+  lastMessageAt    DateTime?            // Fecha del último mensaje
+  lastMessageText  String?              // Texto del último mensaje (para preview)
+  lastMessageFrom  MessageDirection?    // Dirección del último mensaje
+  
+  // Tiempo de respuesta
+  firstResponseAt  DateTime?            // Primera respuesta del agente
+  avgResponseTime  Int?                 // Tiempo promedio de respuesta en minutos
+  
+  // WhatsApp específico
+  whatsappChatId   String?              // ID del chat en WhatsApp
+  whatsappChannelId String?             // Canal de WhatsApp asociado
+  whatsappChannel  WhatsAppChannel?     @relation(fields: [whatsappChannelId], references: [id])
+  
+  // Control de fechas
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  closedAt         DateTime?            // Fecha de cierre
+  
+  // Relaciones
+  messages         Message[]
+  followUpExecutions FollowUpExecution[]
+  ragAgentConversations RAGAgentConversation[]
+  
+  @@unique([organizationId, whatsappChatId]) // Chat único por organización
+  @@index([organizationId])
+  @@index([contactId])
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+  @@unique([organizationId, contactId])
+}
+
+// Tabla Message - Mensajes individuales dentro de conversaciones
+model Message {
+  id               String           @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Relación con la conversación
+  conversationId   String
+  conversation     Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Dirección y tipo del mensaje
+  direction        MessageDirection // INCOMING o OUTGOING
+  type             MessageType      @default(TEXT)
+  
+  // Contenido del mensaje
+  content          String           @db.Text // Texto del mensaje
+  
+  // Archivos adjuntos (para imágenes, documentos, etc.)
+  attachmentUrl    String?          // URL del archivo en cloud storage
+  attachmentType   String?          // MIME type del archivo
+  attachmentName   String?          // Nombre original del archivo
+  attachmentSize   Int?             // Tamaño del archivo en bytes
+  
+  // Información específica de WhatsApp
+  whatsappId       String?          // ID único del mensaje en WhatsApp
+  whatsappStatus   String?          // Estado en WhatsApp (sent, delivered, read)
+  whatsappChannelId String?         // Canal de WhatsApp por el que se envió
+  whatsappChannel  WhatsAppChannel? @relation(fields: [whatsappChannelId], references: [id])
+  
+  // Usuario que envió el mensaje (si es OUTGOING)
+  sentBy           String?          // ID del usuario/agente
+  sentByName       String?          // Nombre del usuario/agente
+  
+  // Estado del mensaje
+  isRead           Boolean          @default(false) // Si fue leído por el agente
+  readAt           DateTime?        // Cuándo fue leído
+  
+  // Información temporal
+  sentAt           DateTime         @default(now()) // Cuándo se envió
+  deliveredAt      DateTime?        // Cuándo se entregó
+  
+  // Respuesta a otro mensaje (threading)
+  replyToId        String?          // ID del mensaje al que responde
+  replyTo          Message?         @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies          Message[]        @relation("MessageReplies")
+  
+  // Metadatos adicionales
+  metadata         Json?            // Información adicional específica del mensaje
+  
+  // Control de fechas
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  @@unique([whatsappId]) // ID de WhatsApp debe ser único
+  @@index([organizationId])
+  @@index([conversationId])
+  @@index([direction])
+  @@index([type])
+  @@index([sentAt])
+  @@index([isRead])
+  @@index([whatsappChannelId])
+  @@map("messages")
+}
+
+// Enums para los canales de WhatsApp
+enum WhatsAppConnectionType {
+  QR_CODE     // Conexión rápida con código QR
+  API_OFFICIAL // Conexión profesional con API oficial de Meta
+}
+
+enum WhatsAppConnectionStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  ERROR
+  EXPIRED
+}
+
+// Tabla WhatsAppChannel - Gestión de canales/conexiones de WhatsApp
+model WhatsAppChannel {
+  id               String                   @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información del canal
+  name             String                   // Nombre del canal (ej: "Soporte Principal")
+  phone            String                   // Número de teléfono del canal
+  connectionType   WhatsAppConnectionType   // Tipo de conexión
+  status           WhatsAppConnectionStatus @default(DISCONNECTED)
+  
+  // Datos específicos para conexión QR
+  qrCode           String?                  // Código QR generado para conexión
+  qrExpiration     DateTime?               // Fecha de expiración del QR
+  
+  // Datos específicos para API oficial
+  accessToken      String?                 // Token de acceso de Meta
+  appId            String?                 // ID de la aplicación de Meta
+  appSecret        String?                 // Secreto de la aplicación
+  webhookVerifyToken String?              // Token para verificar webhook
+  phoneNumberId    String?                 // ID del número de teléfono en la API
+  businessAccountId String?               // ID de la cuenta de negocio
+  
+  // Configuración del canal
+  isActive         Boolean                  @default(true)
+  isDefault        Boolean                  @default(false) // Canal por defecto
+  
+  // Configuración de mensajes automáticos
+  welcomeMessage   String?                 // Mensaje de bienvenida automático
+  autoReplyMessage String?                 // Mensaje de respuesta automática
+  workingHours     Json?                   // Horario de atención {"start": "09:00", "end": "18:00"}
+  
+  // Estadísticas del canal
+  messagesReceived Int                     @default(0)
+  messagesSent     Int                     @default(0)
+  lastActivity     DateTime?               // Última actividad
+  
+  // Timestamps
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  connectedAt      DateTime?               // Fecha de última conexión exitosa
+  
+  // Relaciones
+  conversations    Conversation[]
+  messages         Message[]
+  
+  @@unique([organizationId, phone]) // Número único por organización
+  @@index([organizationId])
+  @@index([status])
+  @@index([connectionType])
+  @@map("whatsapp_channels")
+}
+
+// Tabla QuickReply - Respuestas rápidas/plantillas de mensajes
+model QuickReply {
+  id             String       @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información de la respuesta rápida
+  title          String       // Título/nombre de la plantilla (ej: "Saludo inicial")
+  shortcut       String       // Atajo de teclado (ej: "hola", "gracias")
+  content        String       @db.Text // Contenido del mensaje
+  
+  // Categorización y organización
+  category       String?      // Categoría para organizar (ej: "Saludos", "Precios")
+  tags           String[]     @default([]) // Tags para búsqueda
+  
+  // Personalización
+  variables      Json?        // Variables que se pueden reemplazar {"nombre": "", "empresa": ""}
+  
+  // Configuración
+  isActive       Boolean      @default(true)
+  isGlobal       Boolean      @default(false) // Visible para todos los agentes
+  
+  // Estadísticas de uso
+  usageCount     Int          @default(0)
+  lastUsedAt     DateTime?
+  
+  // Creación y modificación
+  createdBy      String       // ID del usuario que la creó
+  createdByUser  User         @relation(fields: [createdBy], references: [id])
+  modifiedBy     String?      // ID del último usuario que la modificó
+  modifiedByUser User?        @relation("QuickReplyModifiedBy", fields: [modifiedBy], references: [id])
+  
+  // Timestamps
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@unique([organizationId, shortcut]) // Atajo único por organización
+  @@index([organizationId])
+  @@index([shortcut])
+  @@index([category])
+  @@index([isActive])
+  @@map("quick_replies")
+}
+
+// ===========================================
+// SISTEMA DE AUTOMATIZACIONES (IA ACTIVA)
+// ===========================================
+
+// Enums para el sistema de automatizaciones
+enum AIIntentionType {
+  SALES         // Intención de venta
+  SUPPORT       // Solicitud de soporte
+  QUESTION      // Pregunta general
+  COMPLAINT     // Queja o reclamo
+  BOOKING       // Reserva o cita
+  PAYMENT       // Relacionado a pagos
+  INFORMATION   // Solicitud de información
+  GREETING      // Saludo inicial
+  FAREWELL      // Despedida
+  OTHER         // Otra intención
+}
+
+enum AutomationConditionType {
+  INTENTION_DETECTED    // Intención detectada por IA
+  KEYWORDS_CONTAINS     // Mensaje contiene palabras clave
+  SENDER_IS_VIP         // El remitente es cliente VIP
+  TIME_RANGE           // Dentro de horario específico
+  FIRST_MESSAGE        // Es el primer mensaje del contacto
+  MESSAGE_COUNT        // Número de mensajes en la conversación
+  RESPONSE_TIME        // Tiempo desde último mensaje
+}
+
+enum AutomationActionType {
+  ADD_TAG              // Agregar etiqueta al contacto
+  ASSIGN_AGENT         // Asignar agente específico
+  SET_PRIORITY         // Establecer prioridad
+  AUTO_REPLY           // Respuesta automática
+  MARK_VIP             // Marcar como VIP
+  TRANSFER_CONVERSATION // Transferir conversación
+  CREATE_TASK          // Crear tarea interna
+  SEND_NOTIFICATION    // Enviar notificación
+}
+
+// Tabla AutomationRule - Reglas de automatización configurables
+model AutomationRule {
+  id               String        @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información de la regla
+  name             String        // Nombre descriptivo de la regla
+  description      String?       // Descripción detallada
+  isActive         Boolean       @default(true)
+  
+  // Prioridad de ejecución (menor número = mayor prioridad)
+  priority         Int           @default(100)
+  
+  // Estadísticas de uso
+  executionCount   Int           @default(0)
+  lastExecutedAt   DateTime?
+  successCount     Int           @default(0)
+  errorCount       Int           @default(0)
+  
+  // Usuario que creó la regla
+  createdBy        String
+  createdByName    String
+  modifiedBy       String?
+  modifiedByName   String?
+  
+  // Control de fechas
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relaciones
+  conditions       AutomationCondition[]
+  actions          AutomationAction[]
+  executions       AutomationExecution[]
+  
+  @@index([organizationId])
+  @@index([isActive])
+  @@index([priority])
+  @@map("automation_rules")
+}
+
+// Tabla AutomationCondition - Condiciones para activar automatizaciones
+model AutomationCondition {
+  id            String                  @id @default(cuid())
+  
+  // Relación con la regla
+  ruleId        String
+  rule          AutomationRule          @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Tipo de condición
+  type          AutomationConditionType
+  
+  // Operador lógico con otras condiciones (AND/OR)
+  logicalOperator String                @default("AND") // AND, OR
+  
+  // Datos específicos según el tipo de condición
+  intentionTypes  AIIntentionType[]     @default([]) // Para INTENTION_DETECTED
+  keywords        String[]              @default([]) // Para KEYWORDS_CONTAINS
+  keywordMatchType String?              @default("ANY") // ANY, ALL, EXACT
+  
+  // Configuración temporal para TIME_RANGE
+  timeStart       String?               // "09:00"
+  timeEnd         String?               // "18:00"
+  weekdays        Int[]                 @default([]) // [1,2,3,4,5] (1=Monday)
+  timezone        String?               // Timezone para validar horarios
+  
+  // Configuración numérica
+  messageCountMin Int?                  // Mínimo de mensajes
+  messageCountMax Int?                  // Máximo de mensajes
+  responseTimeMin Int?                  // Tiempo mínimo en minutos
+  responseTimeMax Int?                  // Tiempo máximo en minutos
+  
+  // Metadatos adicionales
+  metadata        Json?                 // Configuración adicional específica
+  
+  // Control de fechas
+  createdAt       DateTime              @default(now())
+  
+  @@index([ruleId])
+  @@index([type])
+  @@map("automation_conditions")
+}
+
+// Tabla AutomationAction - Acciones a ejecutar cuando se cumple una regla
+model AutomationAction {
+  id              String               @id @default(cuid())
+  
+  // Relación con la regla
+  ruleId          String
+  rule            AutomationRule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Tipo de acción
+  type            AutomationActionType
+  
+  // Orden de ejecución dentro de la regla
+  executionOrder  Int                  @default(1)
+  
+  // Datos específicos según el tipo de acción
+  tagName         String?              // Para ADD_TAG
+  tagColor        String?              // Color de la etiqueta
+  
+  agentId         String?              // Para ASSIGN_AGENT
+  agentName       String?              // Nombre del agente
+  
+  priority        ConversationPriority? // Para SET_PRIORITY
+  
+  replyMessage    String?              @db.Text // Para AUTO_REPLY
+  replyDelay      Int?                 @default(0) // Delay en segundos
+  
+  targetAgentId   String?              // Para TRANSFER_CONVERSATION
+  transferReason  String?              // Razón de la transferencia
+  
+  taskTitle       String?              // Para CREATE_TASK
+  taskDescription String?              @db.Text
+  taskDueDate     DateTime?            // Fecha límite de la tarea
+  
+  notificationTitle String?            // Para SEND_NOTIFICATION
+  notificationMessage String?          @db.Text
+  notificationChannels String[]        @default([]) // email, slack, webhook
+  
+  // Metadatos adicionales
+  metadata        Json?                // Configuración adicional específica
+  
+  // Control de fechas
+  createdAt       DateTime             @default(now())
+  
+  @@index([ruleId])
+  @@index([type])
+  @@index([executionOrder])
+  @@map("automation_actions")
+}
+
+// Tabla AutomationExecution - Historial de ejecuciones de automatizaciones
+model AutomationExecution {
+  id                String           @id @default(cuid())
+  
+  // Relación con la regla ejecutada
+  ruleId            String
+  rule              AutomationRule   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  // Contexto de la ejecución
+  messageId         String?          // Mensaje que disparó la automatización
+  conversationId    String?          // Conversación afectada
+  contactId         String?          // Contacto afectado
+  
+  // Resultado de la ejecución
+  success           Boolean          @default(false)
+  error             String?          @db.Text
+  executionTime     Int              @default(0) // Tiempo en milisegundos
+  
+  // IA Analysis realizado
+  detectedIntentions AIIntentionType[] @default([])
+  confidenceScore   Decimal?         @db.Decimal(5, 4) // Score de confianza 0-1
+  keywordsFound     String[]         @default([])
+  aiAnalysis        Json?            // Análisis completo de la IA
+  
+  // Acciones ejecutadas
+  actionsExecuted   Json?            // Lista de acciones que se ejecutaron
+  actionsSkipped    Json?            // Lista de acciones que se saltaron
+  
+  // Control de fechas
+  createdAt         DateTime         @default(now())
+  
+  @@index([ruleId])
+  @@index([messageId])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([success])
+  @@index([createdAt])
+  @@map("automation_executions")
+}
+
+// Tabla AIAnalysisCache - Cache de análisis de IA para optimizar performance
+model AIAnalysisCache {
+  id               String             @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Hash del contenido para evitar duplicados
+  contentHash      String             // MD5 o SHA1 del mensaje
+  
+  // Análisis realizado por la IA
+  detectedIntentions AIIntentionType[] @default([])
+  confidenceScore   Decimal           @db.Decimal(5, 4) // Score de confianza 0-1
+  sentiment         String?           // positive, negative, neutral
+  keywordsExtracted String[]          @default([])
+  
+  // Metadatos del análisis
+  aiProvider        String            // Proveedor de IA usado
+  modelUsed         String            // Modelo específico usado
+  processingTime    Int               // Tiempo de procesamiento en ms
+  analysisVersion   String            @default("1.0") // Versión del algoritmo
+  
+  // Control de cache
+  hitCount          Int               @default(0) // Cuántas veces se ha usado
+  lastUsedAt        DateTime          @default(now())
+  expiresAt         DateTime?         // Fecha de expiración del cache
+  
+  // Control de fechas
+  createdAt         DateTime          @default(now())
+  
+  @@unique([organizationId, contentHash]) // Hash único por organización
+  @@index([organizationId])
+  @@index([contentHash])
+  @@index([lastUsedAt])
+  @@index([expiresAt])
+  @@map("ai_analysis_cache")
+}
+
+// ===========================================
+// SISTEMA DE CACHE INTELIGENTE DE IA
+// ===========================================
+
+// Tabla AICache - Caché inteligente de respuestas de IA para optimizar costos
+model AICache {
+  id             String   @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Hash del prompt del usuario para identificar preguntas repetitivas
+  promptHash     String   // Hash MD5/SHA1 del prompt normalizado
+  
+  // Respuesta almacenada de la IA
+  response       String   @db.Text // Respuesta completa generada por la IA
+  
+  // Metadatos de la respuesta original
+  originalProvider String // Proveedor original (OpenAI, Claude, etc.)
+  originalModel   String  // Modelo original usado
+  originalCost    Decimal @db.Decimal(10, 6) // Costo original de la llamada
+  
+  // Control de uso del caché
+  hitCount       Int      @default(0) // Cuántas veces se ha usado esta respuesta
+  lastUsedAt     DateTime @default(now()) // Última vez que se usó
+  
+  // Configuración de expiración
+  expiresAt      DateTime? // Fecha de expiración opcional
+  isActive       Boolean  @default(true) // Si el caché está activo
+  
+  // Control de fechas
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@unique([organizationId, promptHash]) // Prompt hash único por organización
+  @@index([organizationId])
+  @@index([promptHash])
+  @@index([isActive])
+  @@index([lastUsedAt])
+  @@index([expiresAt])
+  @@map("ai_cache")
+}
+
+// ===========================================
+// BASE DE CONOCIMIENTO (KNOWLEDGE BASE)
+// ===========================================
+
+// Enums para el sistema de base de conocimiento
+enum KnowledgeSourceType {
+  FILE          // Archivo subido (PDF, DOC, TXT)
+  URL           // Página web o URL
+  TEXT          // Texto ingresado manualmente
+}
+
+enum KnowledgeSourceStatus {
+  UPLOADING     // Subiendo archivo
+  PROCESSING    // Procesando contenido
+  CHUNKING      // Dividiendo en fragmentos
+  EMBEDDING     // Generando embeddings
+  ACTIVE        // Activo y listo para usar
+  ERROR         // Error en el procesamiento
+  DISABLED      // Deshabilitado temporalmente
+}
+
+enum ChunkProcessingStatus {
+  PENDING       // Pendiente de procesar
+  PROCESSING    // Procesando embedding
+  COMPLETED     // Completado exitosamente
+  FAILED        // Falló el procesamiento
+}
+
+// Tabla KnowledgeSource - Fuentes de conocimiento de la organización
+model KnowledgeSource {
+  id               String                @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica de la fuente
+  name             String                // Nombre descriptivo
+  type             KnowledgeSourceType   // Tipo de fuente
+  status           KnowledgeSourceStatus @default(UPLOADING)
+  
+  // Datos específicos según el tipo
+  originalFileName String?               // Para archivos: nombre original
+  fileUrl          String?               // Para archivos: URL en cloud storage
+  fileMimeType     String?               // Para archivos: tipo MIME
+  fileSize         Int?                  // Para archivos: tamaño en bytes
+  
+  sourceUrl        String?               // Para URLs: URL original
+  crawlDepth       Int?                  @default(1) // Para URLs: profundidad de crawling
+  
+  textContent      String?               @db.Text // Para texto manual o contenido extraído
+  
+  // Metadatos de procesamiento
+  totalChunks      Int                   @default(0) // Total de chunks generados
+  processedChunks  Int                   @default(0) // Chunks procesados exitosamente
+  failedChunks     Int                   @default(0) // Chunks que fallaron
+  
+  // Configuración de procesamiento
+  chunkSize        Int                   @default(1000) // Tamaño de cada chunk en caracteres
+  chunkOverlap     Int                   @default(100)  // Overlap entre chunks
+  
+  // Información de calidad y relevancia
+  contentQuality   Decimal?              @db.Decimal(3, 2) // Score de calidad 0-1
+  lastUsedAt       DateTime?             // Última vez que se usó en una respuesta
+  usageCount       Int                   @default(0) // Veces que se ha usado
+  
+  // Metadatos adicionales
+  metadata         Json?                 // Metadatos adicionales (idioma, categoría, etc.)
+  tags             String[]              @default([]) // Tags para organizar
+  
+  // Información de error
+  lastError        String?               @db.Text // Último error encontrado
+  retryCount       Int                   @default(0) // Número de reintentos
+  maxRetries       Int                   @default(3) // Máximo número de reintentos
+  
+  // Usuario que creó la fuente
+  createdBy        String                // ID del usuario
+  createdByName    String                // Nombre del usuario para mostrar
+  
+  // Control de fechas
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  processedAt      DateTime?             // Fecha de último procesamiento
+  
+  // Relaciones
+  chunks           KnowledgeChunk[]      // Chunks de contenido
+  ragAgents        RAGAgentKnowledgeBase[] // Agentes RAG que usan esta fuente
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([lastUsedAt])
+  @@map("knowledge_sources")
+}
+
+// Tabla KnowledgeChunk - Fragmentos de contenido procesados
+model KnowledgeChunk {
+  id               String                @id @default(cuid())
+  
+  // Relación con la fuente de conocimiento
+  sourceId         String
+  source           KnowledgeSource       @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  
+  // Información del chunk
+  content          String                @db.Text // Contenido del fragmento
+  chunkIndex       Int                   // Índice del chunk dentro de la fuente
+  startPosition    Int?                  // Posición de inicio en el documento original
+  endPosition      Int?                  // Posición final en el documento original
+  
+  // Estado del procesamiento
+  status           ChunkProcessingStatus @default(PENDING)
+  processingError  String?               @db.Text // Error de procesamiento si aplica
+  
+  // Metadatos del contenido
+  wordCount        Int                   @default(0) // Número de palabras
+  characterCount   Int                   @default(0) // Número de caracteres
+  language         String?               @default("es") // Idioma detectado
+  
+  // Información de contexto
+  title            String?               // Título del fragmento (si se puede extraer)
+  section          String?               // Sección del documento
+  pageNumber       Int?                  // Página (para documentos)
+  
+  // Calidad y relevancia
+  contentQuality   Decimal?              @db.Decimal(3, 2) // Score de calidad del contenido
+  keywordDensity   Json?                 // Densidad de palabras clave importantes
+  
+  // Estadísticas de uso
+  usageCount       Int                   @default(0) // Veces que se ha usado en respuestas
+  lastUsedAt       DateTime?             // Última vez usado
+  relevanceScore   Decimal?              @db.Decimal(5, 4) // Score de relevancia promedio
+  
+  // Control de fechas
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  processedAt      DateTime?             // Fecha de procesamiento del embedding
+  
+  // Relaciones
+  embeddings       KnowledgeEmbedding[]  // Embeddings vectoriales
+  
+  @@unique([sourceId, chunkIndex]) // Índice único por fuente
+  @@index([sourceId])
+  @@index([status])
+  @@index([contentQuality])
+  @@index([usageCount])
+  @@index([lastUsedAt])
+  @@map("knowledge_chunks")
+}
+
+// Tabla KnowledgeEmbedding - Embeddings vectoriales para búsqueda semántica
+model KnowledgeEmbedding {
+  id               String              @id @default(cuid())
+  
+  // Relación con el chunk
+  chunkId          String
+  chunk            KnowledgeChunk      @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  
+  // Información del embedding
+  modelUsed        String              // Modelo usado para generar el embedding
+  embeddingVersion String              @default("1.0") // Versión del embedding
+  dimensions       Int                 // Dimensiones del vector
+  
+  // Vector embedding (almacenado como JSON por compatibilidad)
+  embedding        Json                // Vector de embeddings
+  
+  // Metadatos del procesamiento
+  processingTime   Int                 @default(0) // Tiempo de procesamiento en ms
+  providerUsed     String              // Proveedor de IA usado
+  costIncurred     Decimal?            @db.Decimal(10, 6) // Costo incurrido
+  
+  // Control de calidad
+  quality          Decimal?            @db.Decimal(3, 2) // Calidad del embedding
+  confidence       Decimal?            @db.Decimal(5, 4) // Confianza del modelo
+  
+  // Estadísticas de búsqueda
+  searchCount      Int                 @default(0) // Veces encontrado en búsquedas
+  avgSimilarity    Decimal?            @db.Decimal(5, 4) // Similaridad promedio en búsquedas
+  lastSearchAt     DateTime?           // Última búsqueda
+  
+  // Control de fechas
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  @@unique([chunkId, modelUsed]) // Un embedding por chunk por modelo
+  @@index([chunkId])
+  @@index([modelUsed])
+  @@index([dimensions])
+  @@index([quality])
+  @@map("knowledge_embeddings")
+}
+
+// Tabla KnowledgeUsage - Registro de uso de la base de conocimiento
+model KnowledgeUsage {
+  id               String              @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Contexto del uso
+  userId           String?             // Usuario que realizó la consulta
+  userName         String?             // Nombre del usuario
+  sessionId        String?             // ID de sesión si aplica
+  conversationId   String?             // ID de conversación si aplica
+  
+  // Información de la consulta
+  query            String              @db.Text // Consulta realizada
+  queryType        String              @default("similarity") // Tipo de búsqueda
+  resultsFound     Int                 @default(0) // Número de resultados encontrados
+  resultsUsed      Int                 @default(0) // Número de resultados usados
+  
+  // Fuentes consultadas
+  sourcesConsulted Json                // IDs de fuentes consultadas
+  chunksRetrieved  Json                // IDs de chunks recuperados
+  
+  // Métricas de calidad
+  avgSimilarity    Decimal?            @db.Decimal(5, 4) // Similaridad promedio
+  queryComplexity  Int?                // Complejidad de la consulta 1-10
+  satisfactionScore Decimal?           @db.Decimal(3, 2) // Score de satisfacción
+  
+  // Información de respuesta generada
+  responseGenerated Boolean             @default(false) // Si se generó una respuesta
+  responseLength   Int?                // Longitud de la respuesta
+  responseQuality  Decimal?            @db.Decimal(3, 2) // Calidad de la respuesta
+  
+  // Metadatos adicionales
+  metadata         Json?               // Información adicional
+  processingTime   Int                 @default(0) // Tiempo total de procesamiento
+  
+  // Control de fechas
+  createdAt        DateTime            @default(now())
+  
+  @@index([organizationId])
+  @@index([userId])
+  @@index([conversationId])
+  @@index([queryType])
+  @@index([createdAt])
+  @@map("knowledge_usage")
+}
+
+// Sistema de Integraciones para conectar con E-commerce
+enum IntegrationType {
+  ECOMMERCE      // Plataformas de e-commerce
+  CRM            // Sistemas de CRM  
+  ERP            // Sistemas ERP
+  PAYMENT        // Procesadores de pago
+  ANALYTICS      // Herramientas de análisis
+  MARKETING      // Plataformas de marketing
+  SOCIAL_MEDIA   // Redes sociales
+  EMAIL          // Email marketing
+  SUPPORT        // Tickets de soporte
+  OTHER          // Otras integraciones
+}
+
+enum AIProviderType {
+  OPENAI         // GPT-3.5, GPT-4
+  ANTHROPIC      // Claude
+  GOOGLE         // Gemini, Bard
+  COHERE         // Cohere AI
+  HUGGING_FACE   // Hugging Face Models
+  LOCAL          // Modelos locales
+  CUSTOM         // API personalizada
+}
+
+enum RAGAgentType {
+  COORDINATOR    // Agente coordinador principal
+  SALES          // Agente especializado en ventas
+  SUPPORT        // Agente especializado en soporte
+  TECHNICAL      // Agente especializado técnico
+  MARKETING      // Agente especializado en marketing
+  GENERAL        // Agente de propósito general
+  CUSTOM         // Agente personalizado
+}
+
+enum RAGAgentStatus {
+  ACTIVE         // Agente activo
+  INACTIVE       // Agente inactivo
+  TRAINING       // Agente en entrenamiento
+  ERROR          // Agente con error
+}
+
+enum SupportTicketStatus {
+  OPEN           // Ticket abierto
+  IN_PROGRESS    // En progreso
+  PENDING_CLIENT // Esperando respuesta del cliente
+  RESOLVED       // Resuelto
+  CLOSED         // Cerrado
+}
+
+enum SupportTicketPriority {
+  LOW            // Baja prioridad
+  MEDIUM         // Prioridad media
+  HIGH           // Alta prioridad
+  CRITICAL       // Crítico
+}
+
+enum SupportServiceType {
+  INTEGRATION_SUPPORT    // Soporte para integraciones
+  TECHNICAL_SOLUTION     // Solución técnica
+  CONFIGURATION_HELP     // Ayuda con configuración
+  TRAINING               // Entrenamiento
+  CUSTOM_DEVELOPMENT     // Desarrollo personalizado
+}
+
+enum IntegrationStatus {
+  AVAILABLE      // Disponible para conectar
+  CONNECTED      // Conectado y funcionando
+  DISCONNECTED   // Desconectado
+  ERROR          // Error en la conexión
+  PENDING        // Pendiente de configuración
+}
+
+enum EcommercePlatform {
+  SHOPIFY        // Shopify
+  WOOCOMMERCE    // WooCommerce
+  TIENDANUBE     // TiendaNube
+  MAGENTO        // Magento
+  PRESTASHOP     // PrestaShop
+  OTHER          // Otras plataformas
+}
+
+// Modelo base para todas las integraciones disponibles
+model Integration {
+  id               String            @id @default(cuid())
+  
+  // Información básica de la integración
+  name             String            // Nombre de la integración (ej: "Shopify", "WooCommerce")
+  displayName      String            // Nombre para mostrar
+  description      String?           // Descripción de la integración
+  type             IntegrationType   // Tipo de integración
+  platform         EcommercePlatform? // Plataforma específica (para e-commerce)
+  
+  // Configuración técnica
+  apiUrl           String?           // URL base de la API
+  authType         String            // Tipo de autenticación (oauth, api_key, basic)
+  authFields       Json              // Campos requeridos para autenticación
+  supportedFeatures Json            // Funcionalidades soportadas
+  
+  // Configuración visual
+  iconUrl          String?           // URL del ícono
+  brandColor       String?           // Color de la marca
+  
+  // Metadatos
+  isActive         Boolean           @default(true) // Si la integración está activa
+  version          String            @default("1.0") // Versión de la integración
+  documentation    String?           // URL de documentación
+  
+  // Relaciones
+  connections      OrganizationIntegration[] // Conexiones de organizaciones
+  
+  // Control de fechas
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  @@unique([name])
+  @@map("integrations")
+}
+
+// Conexiones específicas de organizaciones con integraciones
+model OrganizationIntegration {
+  id               String            @id @default(cuid())
+  
+  // Relaciones
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  integrationId    String
+  integration      Integration       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  
+  // Estado de la conexión
+  status           IntegrationStatus @default(PENDING)
+  
+  // Configuración específica de la organización
+  config           Json              // Configuración específica (credenciales encriptadas, settings)
+  name             String?           // Nombre personalizado para esta conexión
+  
+  // Datos de autenticación (encriptados)
+  credentials      Json?             // Credenciales de API (encriptadas)
+  accessToken      String?           // Token de acceso (encriptado)
+  refreshToken     String?           // Token de refresco (encriptado)
+  tokenExpiresAt   DateTime?         // Fecha de expiración del token
+  
+  // Información de la tienda (para e-commerce)
+  storeUrl         String?           // URL de la tienda
+  storeName        String?           // Nombre de la tienda
+  storeId          String?           // ID único de la tienda
+  
+  // Metadatos de sincronización
+  lastSyncAt       DateTime?         // Última sincronización
+  syncErrors       Json?             // Errores de sincronización
+  syncStats        Json?             // Estadísticas de sincronización
+  
+  // Configuración de funcionalidades
+  features         Json?             // Funcionalidades habilitadas
+  webhookUrl       String?           // URL para webhooks
+  webhookSecret    String?           // Secret para webhooks
+  
+  // Control de fechas
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  // Usuario que configuró la integración
+  configuredBy     String?           // ID del usuario
+  configuredUser   User?             @relation(fields: [configuredBy], references: [id], onDelete: SetNull)
+  
+  // Relación con logs
+  logs             IntegrationLog[]
+  
+  @@unique([organizationId, integrationId])
+  @@index([organizationId])
+  @@index([integrationId])
+  @@index([status])
+  @@map("organization_integrations")
+}
+
+// Log de eventos de sincronización y uso de integraciones
+model IntegrationLog {
+  id               String            @id @default(cuid())
+  
+  // Relación
+  organizationIntegrationId String
+  organizationIntegration   OrganizationIntegration @relation(fields: [organizationIntegrationId], references: [id], onDelete: Cascade)
+  
+  // Información del evento
+  eventType        String            // Tipo de evento (sync, api_call, error, etc.)
+  eventData        Json?             // Datos del evento
+  success          Boolean           @default(true) // Si el evento fue exitoso
+  errorMessage     String?           // Mensaje de error si falló
+  
+  // Contexto del evento
+  userId           String?           // Usuario que triggereó el evento
+  conversationId   String?           // ID de conversación relacionada
+  
+  // Métricas
+  processingTime   Int?              // Tiempo de procesamiento en ms
+  recordsProcessed Int?              // Número de registros procesados
+  
+  // Control de fechas
+  createdAt        DateTime          @default(now())
+  
+  @@index([organizationIntegrationId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("integration_logs")
+}
+
+// =============================================================================
+// SISTEMA DE CAMPAÑAS PROFESIONALES (LA MÁQUINA DE CRECIMIENTO)
+// =============================================================================
+
+// Enums para el sistema de campañas
+enum TemplateStatus {
+  PENDING       // Pendiente de aprobación por Meta
+  APPROVED      // Aprobada por Meta y lista para usar
+  REJECTED      // Rechazada por Meta
+  PAUSED        // Pausada temporalmente
+  ARCHIVED      // Archivada
+}
+
+enum CampaignStatus {
+  DRAFT         // Borrador en creación
+  SCHEDULED     // Programada para envío
+  SENDING       // Enviándose actualmente
+  COMPLETED     // Completada exitosamente
+  PAUSED        // Pausada manualmente
+  CANCELLED     // Cancelada antes de completar
+  FAILED        // Falló durante el envío
+}
+
+enum CampaignType {
+  IMMEDIATE       // Envío inmediato
+  SCHEDULED       // Envío programado
+  DRIP            // Campaña goteada (secuencial)
+  AB_TEST         // Prueba A/B
+  WHATSAPP_BUSINESS  // WhatsApp Business (40 mensajes/día, sin plantillas verificadas)
+  WHATSAPP_API       // WhatsApp API (ilimitado, solo plantillas verificadas)
+}
+
+enum AudienceFilterType {
+  INCLUDE_TAG   // DEBE TENER esta etiqueta
+  EXCLUDE_TAG   // NO DEBE TENER esta etiqueta
+  CHANNEL       // Filtrar por canal de origen
+  VIP_STATUS    // Filtrar por estatus VIP
+  LAST_CONTACT  // Filtrar por última fecha de contacto
+  CONVERSATION_STATUS // Filtrar por estado de conversación
+}
+
+enum AudienceFilterOperator {
+  AND           // Y lógico
+  OR            // O lógico
+}
+
+enum MessageDeliveryStatus {
+  PENDING       // Pendiente de envío
+  QUEUED        // En cola de envío
+  SENT          // Enviado exitosamente
+  DELIVERED     // Entregado al destinatario
+  READ          // Leído por el destinatario
+  FAILED        // Falló el envío
+  CANCELLED     // Cancelado antes del envío
+}
+
+// Tabla MessageTemplate - Plantillas de mensajes pre-aprobadas por Meta
+model MessageTemplate {
+  id                String         @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica de la plantilla
+  name              String         // Nombre descriptivo interno
+  metaTemplateId    String?        // ID de la plantilla en Meta Business
+  metaTemplateName  String?        // Nombre registrado en Meta
+  
+  // Estado de aprobación
+  status            TemplateStatus @default(PENDING)
+  statusMessage     String?        // Mensaje de estado de Meta
+  
+  // Contenido de la plantilla
+  category          String         // Categoría en Meta (MARKETING, UTILITY, etc.)
+  language          String         @default("es") // Idioma de la plantilla
+  headerType        String?        // NONE, TEXT, IMAGE, VIDEO, DOCUMENT
+  headerContent     String?        // Contenido del header
+  bodyContent       String         @db.Text // Contenido principal (con variables {{1}}, {{2}})
+  footerContent     String?        // Contenido del footer opcional
+  
+  // Botones y componentes interactivos
+  hasButtons        Boolean        @default(false)
+  buttonsConfig     Json?          // Configuración de botones
+  
+  // Variables y personalización
+  variables         Json?          // Definición de variables y sus tipos
+  sampleValues      Json?          // Valores de ejemplo para las variables
+  
+  // Configuración y restricciones
+  isActive          Boolean        @default(true)
+  allowedChannels   String[]       @default([]) // Canales donde se puede usar
+  usageLimit        Int?           // Límite de uso (si aplica)
+  
+  // Metadatos de Meta Business
+  metaQualityScore  String?        // Puntaje de calidad en Meta
+  metaRejectionReason String?      // Razón de rechazo si aplica
+  metaLastSyncAt    DateTime?      // Última sincronización con Meta
+  
+  // Estadísticas de uso
+  usageCount        Int            @default(0)
+  successfulSends   Int            @default(0)
+  failedSends       Int            @default(0)
+  lastUsedAt        DateTime?
+  
+  // Control de fechas
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  approvedAt        DateTime?      // Fecha de aprobación por Meta
+  
+  // Usuario que creó la plantilla
+  createdBy         String         // ID del usuario
+  createdByName     String         // Nombre del usuario
+  
+  // Relaciones
+  campaigns         Campaign[]     // Campañas que usan esta plantilla
+  
+  @@unique([organizationId, metaTemplateId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([category])
+  @@index([isActive])
+  @@map("message_templates")
+}
+
+// Tabla Campaign - Campañas de marketing y comunicación
+model Campaign {
+  id                String         @id @default(cuid())
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica de la campaña
+  name              String         // Nombre de la campaña
+  description       String?        // Descripción detallada
+  type              CampaignType   @default(IMMEDIATE)
+  status            CampaignStatus @default(DRAFT)
+  
+  // Plantilla utilizada
+  templateId        String
+  template          MessageTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  // Configuración de mensaje personalizada
+  messageVariables  Json?          // Valores de las variables de la plantilla
+  personalizationRules Json?       // Reglas de personalización avanzada
+  
+  // Configuración de audiencia
+  targetAudienceSize Int           @default(0) // Tamaño estimado de la audiencia
+  maxRecipients     Int?           // Límite máximo de destinatarios
+  
+  // Programación de envío
+  scheduledFor      DateTime?      // Fecha y hora programada
+  timezone          String         @default("America/Mexico_City")
+  
+  // Configuración de envío
+  sendRate          Int            @default(10) // Mensajes por minuto
+  batchSize         Int            @default(100) // Tamaño de lote
+  retryAttempts     Int            @default(3) // Intentos de reenvío
+  
+  // Estadísticas de la campaña
+  totalRecipients   Int            @default(0) // Total de destinatarios finales
+  messagesSent      Int            @default(0) // Mensajes enviados exitosamente
+  messagesDelivered Int            @default(0) // Mensajes entregados
+  messagesRead      Int            @default(0) // Mensajes leídos
+  messagesFailed    Int            @default(0) // Mensajes fallidos
+  messagesQueue     Int            @default(0) // Mensajes en cola
+  
+  // Costos y presupuesto
+  estimatedCost     Decimal?       @db.Decimal(10, 2) // Costo estimado
+  actualCost        Decimal?       @db.Decimal(10, 2) // Costo real
+  budgetLimit       Decimal?       @db.Decimal(10, 2) // Límite de presupuesto
+  costPerMessage    Decimal?       @db.Decimal(6, 4) // Costo por mensaje
+  
+  // Control de progreso
+  startedAt         DateTime?      // Fecha de inicio real
+  completedAt       DateTime?      // Fecha de finalización
+  pausedAt          DateTime?      // Fecha de pausa
+  cancelledAt       DateTime?      // Fecha de cancelación
+  
+  // Información de error
+  lastError         String?        @db.Text // Último error encontrado
+  errorCount        Int            @default(0) // Número de errores
+  
+  // Control de fechas
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  // Usuario que creó la campaña
+  createdBy         String         // ID del usuario
+  createdByName     String         // Nombre del usuario
+  
+  // Relaciones
+  audienceFilters   CampaignAudienceFilter[] // Filtros de audiencia
+  messageDeliveries CampaignMessageDelivery[] // Estado de entrega de mensajes
+  audiencePreviews  CampaignAudiencePreview[] // Vista previa de audiencias
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([scheduledFor])
+  @@index([createdAt])
+  @@map("campaigns")
+}
+
+// Tabla CampaignAudienceFilter - Filtros para segmentación de audiencias
+model CampaignAudienceFilter {
+  id                String                @id @default(cuid())
+  
+  // Relación con la campaña
+  campaignId        String
+  campaign          Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Configuración del filtro
+  filterType        AudienceFilterType    // Tipo de filtro
+  operator          AudienceFilterOperator @default(AND) // Operador lógico
+  
+  // Datos específicos según el tipo de filtro
+  tagNames          String[]              @default([]) // Para filtros de etiquetas
+  channelIds        String[]              @default([]) // Para filtros de canal
+  vipStatus         Boolean?              // Para filtro VIP (true=solo VIP, false=no VIP, null=ambos)
+  
+  // Filtros temporales
+  lastContactAfter  DateTime?             // Último contacto después de...
+  lastContactBefore DateTime?             // Último contacto antes de...
+  
+  // Filtros de conversación
+  conversationStatuses String[]           @default([]) // Estados de conversación
+  
+  // Metadatos adicionales
+  includeInactive   Boolean               @default(false) // Incluir contactos inactivos
+  metadata          Json?                 // Configuración adicional específica
+  
+  // Control de orden
+  filterOrder       Int                   @default(1) // Orden de aplicación del filtro
+  
+  // Control de fechas
+  createdAt         DateTime              @default(now())
+  
+  @@index([campaignId])
+  @@index([filterType])
+  @@map("campaign_audience_filters")
+}
+
+// Tabla CampaignMessageDelivery - Estado de entrega individual de mensajes
+model CampaignMessageDelivery {
+  id                String              @id @default(cuid())
+  
+  // Relación con la campaña
+  campaignId        String
+  campaign          Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Destinatario
+  contactId         String              // ID del contacto destinatario
+  contactName       String              // Nombre del contacto para logging
+  contactPhone      String              // Teléfono del contacto
+  
+  // Estado de la entrega
+  status            MessageDeliveryStatus @default(PENDING)
+  
+  // Contenido enviado
+  messageContent    String              @db.Text // Contenido final personalizado
+  personalizedVars  Json?               // Variables personalizadas usadas
+  
+  // Información de envío
+  whatsappChannelId String?             // Canal de WhatsApp usado
+  whatsappMessageId String?             // ID del mensaje en WhatsApp
+  
+  // Timestamps de estados
+  queuedAt          DateTime?           // Fecha de cola
+  sentAt            DateTime?           // Fecha de envío
+  deliveredAt       DateTime?           // Fecha de entrega
+  readAt            DateTime?           // Fecha de lectura
+  failedAt          DateTime?           // Fecha de fallo
+  
+  // Información de error
+  errorMessage      String?             @db.Text // Mensaje de error
+  errorCode         String?             // Código de error específico
+  retryCount        Int                 @default(0) // Número de reintentos
+  nextRetryAt       DateTime?           // Próximo intento programado
+  
+  // Costos
+  messageCost       Decimal?            @db.Decimal(6, 4) // Costo de este mensaje específico
+  
+  // Metadatos
+  metadata          Json?               // Información adicional
+  
+  // Control de fechas
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  @@unique([campaignId, contactId]) // Un mensaje por contacto por campaña
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+  @@index([sentAt])
+  @@map("campaign_message_deliveries")
+}
+
+// Tabla CampaignAudiencePreview - Vista previa de audiencias antes de envío
+model CampaignAudiencePreview {
+  id                String              @id @default(cuid())
+  
+  // Relación con la campaña (opcional, puede ser para preview sin campaña)
+  campaignId        String?
+  campaign          Campaign?           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Multi-tenant: Aislamiento por organización
+  organizationId    String
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Configuración de filtros (copia para histórico)
+  filtersConfig     Json                // Configuración completa de filtros
+  
+  // Resultados de la preview
+  totalContacts     Int                 @default(0) // Total de contactos encontrados
+  contactIds        Json                // Array con IDs de contactos seleccionados
+  sampleContacts    Json                // Muestra de contactos para preview
+  
+  // Estadísticas de la audiencia
+  vipCount          Int                 @default(0) // Contactos VIP incluidos
+  channelsDistribution Json            // Distribución por canal
+  tagsDistribution  Json               // Distribución por etiquetas
+  
+  // Metadatos de procesamiento
+  processingTime    Int                 @default(0) // Tiempo de procesamiento en ms
+  lastProcessedAt   DateTime?          // Última vez que se procesó
+  
+  // Control de expiración (preview temporal)
+  expiresAt         DateTime            // Fecha de expiración del preview
+  
+  // Usuario que generó el preview
+  createdBy         String             // ID del usuario
+  createdByName     String             // Nombre del usuario
+  
+  // Control de fechas
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([expiresAt])
+  @@map("campaign_audience_previews")
+}
+
+// Tablas requeridas para NextAuth.js
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// QR Code Authentication Sessions
+model QRSession {
+  id          String   @id @default(cuid())
+  qrCode      String   @unique
+  token       String   @unique
+  status      QRSessionStatus @default(PENDING)
+  
+  // Usuario que se autentica (opcional, se llena cuando se escanea)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Información del dispositivo/navegador
+  userAgent   String?
+  ipAddress   String?
+  
+  // Control de tiempo
+  expiresAt   DateTime
+  scannedAt   DateTime?
+  authenticatedAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([qrCode])
+  @@index([token])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("qr_sessions")
+}
+
+enum QRSessionStatus {
+  PENDING       // QR generado, esperando escaneo
+  SCANNED       // QR escaneado, esperando confirmación
+  AUTHENTICATED // Usuario autenticado exitosamente
+  EXPIRED       // Sesión expirada
+  CANCELLED     // Sesión cancelada
+}
+
+// ============================================
+// SISTEMA DE AGENTES RAG AVANZADO
+// ============================================
+
+// Agentes RAG especializados por organización
+model RAGAgent {
+  id              String           @id @default(cuid())
+  
+  // Relación con organización
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Información básica del agente
+  name            String           // Nombre del agente
+  description     String?          // Descripción del agente
+  type            RAGAgentType     // Tipo de agente
+  status          RAGAgentStatus   @default(ACTIVE)
+  
+  // Configuración de IA
+  aiProvider      AIProviderType   // Proveedor de IA
+  aiModel         String           // Modelo específico (ej: "gpt-4", "claude-3")
+  aiConfiguration Json?            // Configuración específica del modelo
+  
+  // Configuración del agente
+  systemPrompt    String?          // Prompt del sistema
+  maxTokens       Int?             @default(2000) // Máximo de tokens
+  temperature     Float?           @default(0.7) // Temperatura
+  topP            Float?           @default(1.0) // Top-P
+  
+  // Especialización y capacidades
+  specializations Json?            // Especializaciones del agente
+  capabilities    Json?            // Capacidades específicas
+  restrictions    Json?            // Restricciones del agente
+  
+  // Configuración de enrutamiento
+  isCoordinator   Boolean          @default(false) // Si es agente coordinador
+  priority        Int              @default(1) // Prioridad en el enrutamiento
+  routingRules    Json?            // Reglas de enrutamiento
+  
+  // Configuración de conocimiento
+  knowledgeSourceIds Json?         // IDs de fuentes de conocimiento asignadas
+  embeddingSettings  Json?         // Configuración de embeddings
+  retrievalSettings  Json?         // Configuración de retrieval
+  
+  // Configuración de integraciones
+  integrationAccess Json?          // Integraciones que puede usar
+  
+  // Métricas y estadísticas
+  totalConversations  Int          @default(0) // Total de conversaciones
+  totalMessages      Int           @default(0) // Total de mensajes
+  averageRating      Float?        // Rating promedio
+  lastUsedAt         DateTime?     // Última vez usado
+  
+  // Control de fechas
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relaciones
+  conversations   RAGAgentConversation[]
+  messages        RAGAgentMessage[]
+  knowledgeBases  RAGAgentKnowledgeBase[]
+  
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([type])
+  @@index([status])
+  @@index([isCoordinator])
+  @@map("rag_agents")
+}
+
+// Relación entre agentes y fuentes de conocimiento
+model RAGAgentKnowledgeBase {
+  id                String          @id @default(cuid())
+  
+  // Relaciones
+  agentId           String
+  agent             RAGAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeSourceId String
+  knowledgeSource   KnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+  
+  // Configuración específica para este agente
+  priority          Int             @default(1) // Prioridad de esta fuente para el agente
+  isActive          Boolean         @default(true) // Si está activa para el agente
+  customSettings    Json?           // Configuraciones personalizadas
+  
+  // Control de fechas
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@unique([agentId, knowledgeSourceId])
+  @@index([agentId])
+  @@index([knowledgeSourceId])
+  @@map("rag_agent_knowledge_bases")
+}
+
+// Conversaciones específicas de agentes RAG
+model RAGAgentConversation {
+  id              String           @id @default(cuid())
+  
+  // Relaciones
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentId         String
+  agent           RAGAgent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId  String?          // ID de conversación principal (CRM)
+  conversation    Conversation?    @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  
+  // Información de la conversación
+  title           String?          // Título de la conversación
+  summary         String?          // Resumen de la conversación
+  status          ConversationStatus @default(OPEN)
+  
+  // Contexto y estado
+  contextHistory  Json?            // Historial de contexto
+  lastContext     Json?            // Último contexto usado
+  
+  // Métricas
+  totalMessages   Int              @default(0)
+  totalTokens     Int              @default(0)
+  rating          Int?             // Rating de la conversación (1-5)
+  feedback        String?          // Feedback del usuario
+  
+  // Control de fechas
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relaciones
+  messages        RAGAgentMessage[]
+  
+  @@index([organizationId])
+  @@index([agentId])
+  @@index([conversationId])
+  @@index([status])
+  @@map("rag_agent_conversations")
+}
+
+// Mensajes de agentes RAG
+model RAGAgentMessage {
+  id                String                  @id @default(cuid())
+  
+  // Relaciones
+  organizationId    String
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agentId           String
+  agent             RAGAgent                @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  conversationId    String
+  conversation      RAGAgentConversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Contenido del mensaje
+  content           String                  // Contenido del mensaje
+  role              String                  // "user", "assistant", "system"
+  
+  // Información de procesamiento RAG
+  retrievedChunks   Json?                   // Chunks recuperados de la base de conocimiento
+  contextUsed       Json?                   // Contexto usado para generar la respuesta
+  sourcesUsed       Json?                   // Fuentes de conocimiento usadas
+  
+  // Métricas de IA
+  promptTokens      Int?                    // Tokens del prompt
+  completionTokens  Int?                    // Tokens de la respuesta
+  totalTokens       Int?                    // Total de tokens
+  processingTime    Int?                    // Tiempo de procesamiento en ms
+  
+  // Calidad y feedback
+  confidence        Float?                  // Confianza en la respuesta (0-1)
+  relevance         Float?                  // Relevancia del contenido (0-1)
+  rating            Int?                    // Rating del usuario (1-5)
+  
+  // Control de fechas
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  @@index([organizationId])
+  @@index([agentId])
+  @@index([conversationId])
+  @@index([role])
+  @@index([createdAt])
+  @@map("rag_agent_messages")
+}
+
+// ============================================
+// SISTEMA DE SERVICIOS EXTRAS Y SOPORTE TÉCNICO
+// ============================================
+
+// Servicios adicionales disponibles
+model ExtraService {
+  id              String              @id @default(cuid())
+  
+  // Información del servicio
+  name            String              // Nombre del servicio
+  displayName     String              // Nombre para mostrar
+  description     String              // Descripción detallada
+  type            SupportServiceType  // Tipo de servicio
+  
+  // Configuración de precios
+  price           Float               // Precio del servicio
+  currency        String              @default("USD")
+  billingType     String              @default("one_time") // "one_time", "recurring"
+  
+  // Configuración del servicio
+  estimatedHours  Int?                // Horas estimadas
+  deliveryDays    Int?                // Días de entrega estimados
+  requirements    Json?               // Requisitos del servicio
+  deliverables    Json?               // Entregables del servicio
+  
+  // Disponibilidad
+  isActive        Boolean             @default(true)
+  maxConcurrent   Int?                // Máximo de servicios concurrentes
+  
+  // Metadatos
+  tags            Json?               // Etiquetas del servicio
+  skillsRequired  Json?               // Habilidades requeridas
+  
+  // Control de fechas
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relaciones
+  tickets         SupportTicket[]
+  
+  @@unique([name])
+  @@index([type])
+  @@index([isActive])
+  @@map("extra_services")
+}
+
+// Tickets de soporte técnico
+model SupportTicket {
+  id                String                  @id @default(cuid())
+  
+  // Relaciones
+  organizationId    String
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceId         String?
+  service           ExtraService?           @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  
+  // Información básica del ticket
+  title             String                  // Título del ticket
+  description       String                  // Descripción detallada
+  type              SupportServiceType      // Tipo de servicio solicitado
+  status            SupportTicketStatus     @default(OPEN)
+  priority          SupportTicketPriority   @default(MEDIUM)
+  
+  // Información del cliente
+  clientName        String                  // Nombre del cliente
+  clientEmail       String                  // Email del cliente
+  clientPhone       String?                 // Teléfono del cliente
+  clientCompany     String?                 // Empresa del cliente
+  
+  // Detalles técnicos
+  technicalDetails  Json?                   // Detalles técnicos específicos
+  systemInfo        Json?                   // Información del sistema
+  errorLogs         Json?                   // Logs de errores
+  screenshots       Json?                   // URLs de capturas de pantalla
+  attachments       Json?                   // Archivos adjuntos
+  
+  // Asignación y seguimiento
+  assignedTo        String?                 // ID del técnico asignado
+  assignedAt        DateTime?               // Fecha de asignación
+  estimatedHours    Int?                    // Horas estimadas
+  hoursWorked       Float?                  @default(0) // Horas trabajadas
+  
+  // Facturación
+  quotePrice        Float?                  // Precio cotizado
+  finalPrice        Float?                  // Precio final
+  currency          String?                 @default("USD")
+  invoiced          Boolean                 @default(false)
+  paid              Boolean                 @default(false)
+  
+  // Fechas importantes
+  dueDate           DateTime?               // Fecha límite
+  resolvedAt        DateTime?               // Fecha de resolución
+  closedAt          DateTime?               // Fecha de cierre
+  
+  // Control de fechas
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  
+  // Relaciones
+  updates           SupportTicketUpdate[]
+  
+  @@index([organizationId])
+  @@index([serviceId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+// Actualizaciones de tickets de soporte
+model SupportTicketUpdate {
+  id              String                  @id @default(cuid())
+  
+  // Relaciones
+  ticketId        String
+  ticket          SupportTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  // Información de la actualización
+  message         String                  // Mensaje de la actualización
+  type            String                  // Tipo de actualización ("comment", "status_change", "assignment", etc.)
+  isInternal      Boolean                 @default(false) // Si es comentario interno
+  
+  // Información del autor
+  authorType      String                  // "client", "technician", "system"
+  authorId        String?                 // ID del autor (si aplica)
+  authorName      String                  // Nombre del autor
+  authorEmail     String?                 // Email del autor
+  
+  // Datos adicionales
+  metadata        Json?                   // Metadatos adicionales
+  attachments     Json?                   // Archivos adjuntos
+  
+  // Control de fechas
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  
+  @@index([ticketId])
+  @@index([authorType])
+  @@index([createdAt])
+  @@map("support_ticket_updates")
+}
+
+

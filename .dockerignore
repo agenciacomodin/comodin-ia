@@ -1,0 +1,7 @@
+node_modules
+**/node_modules
+#.next
+.build
+.git
+.gitignore
+dev.log

@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.log
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Production
+.vercel
+.netlify
+
+# Misc
+.DS_Store
+*.pem
+.vscode/
+.idea/
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local env files (IMPORTANTE: NO subir credenciales)
+.env
+.env*.local
+.env.production
+.env.development
+
+# Prisma
+prisma/migrations/migration_lock.toml
+
+# PM2
+.pm2/
+logs/
+*.log
+
+# Backups
+*.backup
+*.bak
+*.sql
+*.tar.gz
+*.zip
+
+# Uploads (si hay archivos de usuarios)
+uploads/
+public/uploads/
+
+# Cache
+.cache/
+.temp/
+tmp/
+
+# OS
+Thumbs.db
+.DS_Store
