@@ -1,8 +1,8 @@
 
 import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { redirect } from 'next/navigation'
-import { MainSidebar } from '@/components/layout/main-sidebar'
-import { MainHeader } from '@/components/layout/main-header'
+import { OptimizedSidebar } from '@/components/layout/optimized-sidebar'
+import { OptimizedHeader } from '@/components/layout/optimized-header'
 
 export default async function AuthenticatedLayout({
   children,
@@ -16,18 +16,22 @@ export default async function AuthenticatedLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <MainSidebar />
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Sidebar - Hidden on mobile, shown on desktop */}
+      <div className="hidden lg:block">
+        <OptimizedSidebar />
+      </div>
       
-      {/* Área de contenido principal */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <MainHeader />
+        <OptimizedHeader />
         
-        {/* Contenido */}
-        <main className="flex-1 overflow-auto">
-          {children}
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="container mx-auto p-4 lg:p-6">
+            {children}
+          </div>
         </main>
       </div>
     </div>
