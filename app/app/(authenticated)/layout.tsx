@@ -3,6 +3,7 @@ import { getCurrentOrganization } from '@/lib/multi-tenant'
 import { redirect } from 'next/navigation'
 import { OptimizedSidebar } from '@/components/layout/optimized-sidebar'
 import { OptimizedHeader } from '@/components/layout/optimized-header'
+import { OnboardingTour } from '@/components/onboarding/onboarding-tour'
 
 export default async function AuthenticatedLayout({
   children,
@@ -34,6 +35,9 @@ export default async function AuthenticatedLayout({
           </div>
         </main>
       </div>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour />
     </div>
   )
 }

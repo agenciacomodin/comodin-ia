@@ -152,15 +152,28 @@ export function OptimizedSidebar({ className }: OptimizedSidebarProps) {
               {section.items.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
                 const Icon = item.icon
+                
+                // Agregar data-tour para onboarding
+                const getTourAttribute = () => {
+                  if (item.href === '/inbox') return 'inbox';
+                  if (item.href === '/contacts') return 'contacts';
+                  if (item.href === '/campaigns') return 'campaigns';
+                  if (item.href === '/knowledge-base') return 'knowledge';
+                  if (item.href === '/wallet') return 'wallet';
+                  return undefined;
+                };
 
                 return (
                   <Link key={item.href} href={item.href}>
-                    <div className={cn(
-                      "group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      isActive && "bg-primary text-primary-foreground hover:bg-primary/90",
-                      collapsed && "justify-center px-2"
-                    )}>
+                    <div 
+                      data-tour={getTourAttribute()}
+                      className={cn(
+                        "group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                        "hover:bg-accent hover:text-accent-foreground",
+                        isActive && "bg-primary text-primary-foreground hover:bg-primary/90",
+                        collapsed && "justify-center px-2"
+                      )}
+                    >
                       <Icon className={cn(
                         "h-5 w-5 flex-shrink-0",
                         isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"

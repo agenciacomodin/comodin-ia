@@ -205,6 +205,13 @@ export const navigation: NavSection[] = [
         roles: ['PROPIETARIO', 'DISTRIBUIDOR']
       },
       {
+        name: 'Analytics Avanzado',
+        href: '/analytics',
+        icon: BarChart3,
+        description: 'Métricas detalladas',
+        roles: ['PROPIETARIO', 'DISTRIBUIDOR']
+      },
+      {
         name: 'Soporte Técnico',
         href: '/support',
         icon: Headphones,

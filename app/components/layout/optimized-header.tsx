@@ -4,9 +4,8 @@
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Bell, Search, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
@@ -21,6 +20,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { OptimizedSidebar } from './optimized-sidebar'
+import { GlobalSearch } from '@/components/search/global-search'
+import { NotificationCenter } from '@/components/notifications/notification-center'
 
 interface OptimizedHeaderProps {
   className?: string
@@ -126,55 +127,11 @@ export function OptimizedHeader({ className }: OptimizedHeaderProps) {
 
         {/* Search, Notifications & User Info */}
         <div className="flex items-center gap-2 lg:gap-4">
-          {/* Search Bar */}
-          <form onSubmit={handleSearch} className="hidden md:flex relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Buscar..."
-              className="pl-10 w-48 lg:w-64 h-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </form>
+          {/* Global Search Component */}
+          <GlobalSearch />
 
-          {/* Mobile Search */}
-          <Button variant="ghost" size="icon" className="md:hidden h-9 w-9">
-            <Search className="h-4 w-4" />
-          </Button>
-
-          {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative h-9 w-9">
-                <Bell className="h-4 w-4" />
-                <Badge 
-                  variant="destructive" 
-                  className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                >
-                  3
-                </Badge>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <div className="p-4">
-                <h4 className="font-semibold mb-2">Notificaciones</h4>
-                <div className="space-y-2">
-                  <div className="p-2 rounded-lg bg-muted text-sm">
-                    <p className="font-medium">Nueva conversación</p>
-                    <p className="text-muted-foreground text-xs">Hace 5 minutos</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-muted text-sm">
-                    <p className="font-medium">Campaña completada</p>
-                    <p className="text-muted-foreground text-xs">Hace 1 hora</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-muted text-sm">
-                    <p className="font-medium">Saldo bajo de IA</p>
-                    <p className="text-muted-foreground text-xs">Hace 2 horas</p>
-                  </div>
-                </div>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Notification Center Component */}
+          <NotificationCenter />
 
           {/* Organization Info - Desktop Only */}
           {session?.user && (
