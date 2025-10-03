@@ -359,8 +359,9 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.CREATE_FOLLOW_UP_SEQUENCES,
         Permission.EXECUTE_FOLLOW_UPS,
         
-        // WhatsApp - Puede ver y conectar QR
+        // WhatsApp - Puede ver, conectar QR y configurar
         Permission.VIEW_WHATSAPP_CHANNELS,
+        Permission.MANAGE_WHATSAPP_CHANNELS,
         Permission.CONNECT_WHATSAPP_QR,
         Permission.CONFIGURE_WHATSAPP_SETTINGS,
         
@@ -368,18 +369,22 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.VIEW_QUICK_REPLIES,
         Permission.MANAGE_QUICK_REPLIES,
         
-        // Automatizaciones - Solo ver
+        // Automatizaciones - Ver y gestionar
         Permission.VIEW_AUTOMATIONS,
+        Permission.MANAGE_AUTOMATIONS,
         Permission.VIEW_AUTOMATION_ANALYTICS,
         
-        // Base de Conocimiento - Puede subir contenido
+        // Base de Conocimiento - Puede subir y gestionar contenido
         Permission.VIEW_KNOWLEDGE_BASE,
         Permission.UPLOAD_KNOWLEDGE_SOURCES,
         Permission.MANAGE_KNOWLEDGE_SOURCES,
+        Permission.MANAGE_KNOWLEDGE_BASE,
         
-        // Integraciones - Ver y conectar básico
+        // Integraciones - Ver, conectar y gestionar
         Permission.VIEW_INTEGRATIONS,
         Permission.CONNECT_INTEGRATIONS,
+        Permission.MANAGE_INTEGRATIONS,
+        Permission.CONFIGURE_INTEGRATION_SETTINGS,
         
         // Campañas - Acceso amplio
         Permission.VIEW_CAMPAIGNS,
@@ -390,23 +395,24 @@ export function getRolePermissions(role: string): Permission[] {
         Permission.VIEW_CAMPAIGN_ANALYTICS,
         Permission.USE_AUDIENCE_BUILDER,
         
-        // Templates - Acceso básico
+        // Templates - Acceso completo
         Permission.VIEW_MESSAGE_TEMPLATES,
         Permission.CREATE_MESSAGE_TEMPLATES,
         Permission.MANAGE_MESSAGE_TEMPLATES,
+        Permission.SYNC_META_TEMPLATES,
         
-        // Reportes - Ver reportes
+        // Reportes - Ver y exportar
         Permission.VIEW_REPORTS,
         Permission.EXPORT_REPORTS,
+        Permission.VIEW_ADVANCED_ANALYTICS,
         
-        // Equipo - Solo ver
+        // Equipo - Solo ver, NO puede invitar usuarios
         Permission.VIEW_TEAM_MEMBERS,
         Permission.VIEW_ALL_USERS,
+        // NO tiene: INVITE_TEAM_MEMBERS, MANAGE_TEAM_ROLES, REMOVE_TEAM_MEMBERS
         
-        // Facturación - Solo ver
-        Permission.VIEW_BILLING,
-        Permission.VIEW_USAGE_ANALYTICS,
-        Permission.VIEW_TRANSACTIONS,
+        // Facturación - NO TIENE ACCESO (según P0)
+        // NO tiene: VIEW_BILLING, MANAGE_BILLING, VIEW_USAGE_ANALYTICS, etc.
         
         // Configuración - Solo ver
         Permission.VIEW_ORGANIZATION_SETTINGS,
@@ -414,6 +420,7 @@ export function getRolePermissions(role: string): Permission[] {
         // Permisos adicionales para distribuidor
         Permission.VIEW_AUDIENCE_PREVIEW,
         Permission.VIEW_ASSIGNED_CONVERSATIONS,
+        Permission.VIEW_ALL_CONVERSATIONS,
         Permission.MANAGE_CLIENT_ORGANIZATIONS,
       ]
 
