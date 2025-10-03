@@ -632,6 +632,9 @@ model Contact {
   tags             ContactTag[]
   notes            ContactNote[]
   
+  // Metadata adicional para integraciones externas
+  metadata         Json?         // Datos adicionales de integraciones (Shopify, WooCommerce, etc.)
+  
   @@unique([organizationId, phone]) // Un número único por organización
   @@index([organizationId])
   @@index([phone])

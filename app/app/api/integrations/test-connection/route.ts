@@ -59,6 +59,18 @@ async function testRealConnection(integrationName: string, authData: any) {
       case 'n8n':
         return await testN8NConnection(authData)
       
+      case 'shopify':
+        return await testShopifyConnection(authData)
+      
+      case 'woocommerce':
+        return await testWooCommerceConnection(authData)
+      
+      case 'mailchimp':
+        return await testMailchimpConnection(authData)
+      
+      case 'google_analytics':
+        return await testGoogleAnalyticsConnection(authData)
+      
       default:
         return {
           success: false,
@@ -252,5 +264,165 @@ async function testN8NConnection(authData: any) {
     }
   } catch (error) {
     return { success: false, error: 'Error al conectar con N8N API' }
+  }
+}
+
+/**
+ * Prueba conexión con Shopify
+ */
+async function testShopifyConnection(authData: any) {
+  const { shop_domain, access_token } = authData
+
+  if (!shop_domain || !access_token) {
+    return { success: false, error: 'Shop Domain y Access Token son requeridos' }
+  }
+
+  try {
+    const apiVersion = '2024-01'
+    const url = `https://${shop_domain}/admin/api/${apiVersion}/shop.json`
+    
+    const response = await fetch(url, {
+      headers: {
+        'X-Shopify-Access-Token': access_token,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        success: true,
+        message: `Shopify conectado exitosamente`,
+        data: { shopName: data.shop.name, domain: data.shop.domain }
+      }
+    } else {
+      return { success: false, error: 'Credenciales de Shopify inválidas' }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al conectar con Shopify API' }
+  }
+}
+
+/**
+ * Prueba conexión con WooCommerce
+ */
+async function testWooCommerceConnection(authData: any) {
+  const { site_url, consumer_key, consumer_secret } = authData
+
+  if (!site_url || !consumer_key || !consumer_secret) {
+    return { success: false, error: 'Site URL, Consumer Key y Consumer Secret son requeridos' }
+  }
+
+  try {
+    const cleanUrl = site_url.replace(/\/$/, '')
+    const url = `${cleanUrl}/wp-json/wc/v3/system_status`
+    
+    const auth = Buffer.from(`${consumer_key}:${consumer_secret}`).toString('base64')
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        success: true,
+        message: 'WooCommerce conectado exitosamente',
+        data: { siteUrl: data.environment?.site_url || site_url }
+      }
+    } else {
+      return { success: false, error: 'Credenciales de WooCommerce inválidas' }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al conectar con WooCommerce API' }
+  }
+}
+
+/**
+ * Prueba conexión con Mailchimp
+ */
+async function testMailchimpConnection(authData: any) {
+  const { api_key } = authData
+
+  if (!api_key) {
+    return { success: false, error: 'API Key es requerido' }
+  }
+
+  try {
+    // Extraer el servidor del API key (ej: us1, us2)
+    const serverPrefix = api_key.split('-')[1] || 'us1'
+    const url = `https://${serverPrefix}.api.mailchimp.com/3.0/`
+    
+    const auth = Buffer.from(`anystring:${api_key}`).toString('base64')
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return {
+        success: true,
+        message: 'Mailchimp conectado exitosamente',
+        data: { accountName: data.account_name }
+      }
+    } else {
+      return { success: false, error: 'API Key de Mailchimp inválido' }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al conectar con Mailchimp API' }
+  }
+}
+
+/**
+ * Prueba conexión con Google Analytics
+ */
+async function testGoogleAnalyticsConnection(authData: any) {
+  const { measurement_id, api_secret } = authData
+
+  if (!measurement_id || !api_secret) {
+    return { success: false, error: 'Measurement ID y API Secret son requeridos' }
+  }
+
+  try {
+    // Google Analytics 4 requiere enviar un evento de prueba
+    const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurement_id}&api_secret=${api_secret}`
+    
+    const testEvent = {
+      client_id: `test_${Date.now()}`,
+      events: [{
+        name: 'test_connection',
+        params: {
+          test: true,
+          timestamp: Date.now()
+        }
+      }]
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(testEvent)
+    })
+
+    // GA4 devuelve 204 en éxito (sin contenido)
+    if (response.ok || response.status === 204) {
+      return {
+        success: true,
+        message: 'Google Analytics 4 conectado exitosamente'
+      }
+    } else {
+      return { success: false, error: 'Credenciales de Google Analytics inválidas' }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al conectar con Google Analytics API' }
   }
 }
