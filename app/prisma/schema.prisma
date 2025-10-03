@@ -2057,6 +2057,12 @@ model Campaign {
   batchSize         Int            @default(100) // Tamaño de lote
   retryAttempts     Int            @default(3) // Intentos de reenvío
   
+  // Nueva configuración de campaña extendida
+  channelType       String?        // Tipo de canal: WhatsApp API, WhatsApp Business, Email, SMS
+  campaignDurationDays Int?        // Por cuántos días estará activa la campaña
+  messagesPerDay    Int?           // Límite de mensajes por día
+  enableCustomMessage Boolean      @default(false) // Permitir mensajes personalizados (solo WhatsApp Business)
+  
   // Estadísticas de la campaña
   totalRecipients   Int            @default(0) // Total de destinatarios finales
   messagesSent      Int            @default(0) // Mensajes enviados exitosamente

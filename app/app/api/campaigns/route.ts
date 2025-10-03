@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
       description,
       type = 'IMMEDIATE',
       templateId,
+      customMessage,
       messageVariables,
       audienceFilters,
       maxRecipients,
@@ -109,63 +110,86 @@ export async function POST(request: NextRequest) {
       timezone = 'America/Mexico_City',
       sendRate = 10,
       batchSize = 100,
-      budgetLimit
+      budgetLimit,
+      // Nuevos campos para configuración extendida
+      channelType,
+      campaignDurationDays,
+      messagesPerDay,
+      enableCustomMessage = false
     } = body
 
     // Validaciones básicas
-    if (!name || !templateId || !audienceFilters || audienceFilters.length === 0) {
+    if (!name || !audienceFilters || audienceFilters.length === 0) {
       return NextResponse.json(
-        { error: 'Faltan campos requeridos: name, templateId, audienceFilters' },
+        { error: 'Faltan campos requeridos: name, audienceFilters' },
         { status: 400 }
       )
     }
 
-    // Verificar que la plantilla existe y está aprobada
-    const template = await prisma.messageTemplate.findFirst({
-      where: {
-        id: templateId,
-        organizationId: session.user.organizationId,
-        status: 'APPROVED',
-        isActive: true
-      }
-    })
-
-    if (!template) {
+    // Validar que tenga o templateId o customMessage
+    if (!templateId && !customMessage) {
       return NextResponse.json(
-        { error: 'Plantilla no encontrada o no está aprobada' },
-        { status: 404 }
+        { error: 'Debe proporcionar templateId o customMessage' },
+        { status: 400 }
       )
     }
 
-    // Crear la campaña
+    // Verificar que la plantilla existe y está aprobada (si se proporciona)
+    let template = null
+    if (templateId) {
+      template = await prisma.messageTemplate.findFirst({
+        where: {
+          id: templateId,
+          organizationId: session.user.organizationId,
+          status: 'APPROVED',
+          isActive: true
+        }
+      })
+
+      if (!template) {
+        return NextResponse.json(
+          { error: 'Plantilla no encontrada o no está aprobada' },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Crear la campaña con los nuevos campos
     const campaign = await prisma.campaign.create({
       data: {
         organizationId: session.user.organizationId,
         name,
         description,
         type,
-        templateId,
-        messageVariables,
+        templateId: templateId || null,
+        messageVariables: customMessage ? { customMessage } : messageVariables,
         scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
         timezone,
         sendRate,
         batchSize,
         budgetLimit,
         maxRecipients,
+        // Nuevos campos
+        channelType,
+        campaignDurationDays,
+        messagesPerDay,
+        enableCustomMessage,
+        // Usuario que crea
         createdBy: session.user.id,
         createdByName: session.user.name || 'Usuario',
+        // Filtros de audiencia
         audienceFilters: {
           create: audienceFilters.map((filter: any, index: number) => ({
-            filterType: filter.type,
+            filterType: filter.filterType || filter.type,
             operator: filter.operator || 'AND',
-            tagNames: filter.configuration.tagNames || [],
-            channelIds: filter.configuration.channelIds || [],
-            vipStatus: filter.configuration.vipStatus,
-            lastContactAfter: filter.configuration.lastContactAfter,
-            lastContactBefore: filter.configuration.lastContactBefore,
-            conversationStatuses: filter.configuration.conversationStatuses || [],
-            includeInactive: filter.configuration.includeInactive || false,
-            metadata: filter.configuration,
+            tagNames: filter.tagNames || filter.configuration?.tagNames || [],
+            channelIds: filter.channelIds || filter.configuration?.channelIds || [],
+            vipStatus: filter.vipStatus !== undefined ? filter.vipStatus : filter.configuration?.vipStatus,
+            lastContactAfter: filter.lastContactAfter || filter.configuration?.lastContactAfter,
+            lastContactBefore: filter.lastContactBefore || filter.configuration?.lastContactBefore,
+            conversationStatuses: filter.conversationStatuses || filter.configuration?.conversationStatuses || [],
+            includeInactive: filter.includeInactive || filter.configuration?.includeInactive || false,
+            metadata: filter.metadata || filter.configuration || {},
             filterOrder: index + 1
           }))
         }

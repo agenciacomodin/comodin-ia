@@ -3,11 +3,11 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { hasPermission, userHasPermission, Permission } from '@/lib/permissions'
-import CampaignWizard from '@/components/campaigns/campaign-wizard'
+import NewCampaignWizard from '@/components/campaigns/new-campaign-wizard'
 
 export const metadata = {
   title: 'Crear Campaña - COMODÍN IA',
-  description: 'Crear nueva campaña con segmentación avanzada'
+  description: 'Sistema profesional de campañas con segmentación avanzada'
 }
 
 export default async function CreateCampaignPage() {
@@ -22,8 +22,8 @@ export default async function CreateCampaignPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <CampaignWizard />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <NewCampaignWizard />
     </div>
   )
 }
