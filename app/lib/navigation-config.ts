@@ -22,6 +22,7 @@ import {
   AlertCircle,
   DollarSign,
   User,
+  Headphones,
   type LucideIcon
 } from 'lucide-react'
 
@@ -201,6 +202,13 @@ export const navigation: NavSection[] = [
         href: '/reports',
         icon: BarChart3,
         description: 'Analytics',
+        roles: ['PROPIETARIO', 'DISTRIBUIDOR']
+      },
+      {
+        name: 'Soporte Técnico',
+        href: '/support',
+        icon: Headphones,
+        description: 'Tickets de soporte',
         roles: ['PROPIETARIO', 'DISTRIBUIDOR']
       },
       {
