@@ -1,0 +1,590 @@
+
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { 
+  Upload, 
+  Plus, 
+  Search, 
+  Filter, 
+  FileText, 
+  Globe, 
+  Type,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  XCircle,
+  Eye,
+  Trash2,
+  RefreshCw,
+  Download,
+  BarChart3
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { useToast } from '@/hooks/use-toast'
+import { 
+  KnowledgeSourceSummary, 
+  KnowledgeStats, 
+  KnowledgeSourceType, 
+  KnowledgeSourceStatus,
+  KNOWLEDGE_SOURCE_TYPE_LABELS,
+  KNOWLEDGE_SOURCE_STATUS_LABELS,
+  KNOWLEDGE_SOURCE_STATUS_COLORS,
+  KNOWLEDGE_FILE_TYPES,
+  MAX_KNOWLEDGE_FILE_SIZE
+} from '@/lib/types'
+import { KnowledgeUploader } from '@/components/knowledge/knowledge-uploader'
+import { KnowledgeSourcesTable } from '@/components/knowledge/knowledge-sources-table'
+import { KnowledgeStatsWidget } from '@/components/knowledge/knowledge-stats-widget'
+
+export default function KnowledgeBasePage() {
+  const { data: session } = useSession() || {}
+  const { toast } = useToast()
+
+  // Estados principales
+  const [sources, setSources] = useState<KnowledgeSourceSummary[]>([])
+  const [stats, setStats] = useState<KnowledgeStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  
+  // Estados para modales y formularios
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showAddUrlModal, setShowAddUrlModal] = useState(false)
+  const [showAddTextModal, setShowAddTextModal] = useState(false)
+  const [showFileUploader, setShowFileUploader] = useState(false)
+  const [processing, setProcessing] = useState(false)
+
+  // Estados para formularios
+  const [urlForm, setUrlForm] = useState({
+    url: '',
+    name: '',
+    tags: ''
+  })
+  const [textForm, setTextForm] = useState({
+    name: '',
+    content: '',
+    tags: ''
+  })
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    loadData()
+    loadStats()
+  }, [])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      
+      if (searchTerm) params.set('search', searchTerm)
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (typeFilter !== 'all') params.set('type', typeFilter)
+
+      const response = await fetch(`/api/knowledge?${params}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setSources(result.data.sources)
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Error cargando fuentes',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      console.error('Error loading sources:', error)
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch('/api/knowledge/stats')
+      const result = await response.json()
+
+      if (result.success) {
+        setStats(result.data)
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error)
+    }
+  }
+
+  // Buscar cuando cambien los filtros
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadData()
+    }, 500)
+
+    return () => clearTimeout(debounceTimer)
+  }, [searchTerm, statusFilter, typeFilter])
+
+  // Función para manejar subida exitosa
+  const handleUploadSuccess = useCallback((newSource: any) => {
+    setSources(prev => [newSource, ...prev])
+    setShowAddModal(false)
+    setShowFileUploader(false)
+    toast({
+      title: 'Éxito',
+      description: 'Archivo subido correctamente. El procesamiento comenzará en breve.',
+    })
+    // Recargar stats
+    loadStats()
+  }, [toast])
+
+  // Función para agregar URL
+  const handleAddUrl = async () => {
+    if (!urlForm.url || !urlForm.name) {
+      toast({
+        title: 'Error',
+        description: 'URL y nombre son requeridos',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    try {
+      setProcessing(true)
+      const response = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: urlForm.name,
+          type: KnowledgeSourceType.URL,
+          sourceUrl: urlForm.url,
+          tags: urlForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setSources(prev => [result.data.source, ...prev])
+        setShowAddUrlModal(false)
+        setUrlForm({ url: '', name: '', tags: '' })
+        toast({
+          title: 'Éxito',
+          description: 'URL agregada correctamente. Procesamiento iniciado.',
+        })
+        loadStats()
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Error agregando URL',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive'
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  // Función para agregar texto
+  const handleAddText = async () => {
+    if (!textForm.name || !textForm.content) {
+      toast({
+        title: 'Error',
+        description: 'Nombre y contenido son requeridos',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    try {
+      setProcessing(true)
+      const response = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: textForm.name,
+          type: KnowledgeSourceType.TEXT,
+          textContent: textForm.content,
+          tags: textForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setSources(prev => [result.data.source, ...prev])
+        setShowAddTextModal(false)
+        setTextForm({ name: '', content: '', tags: '' })
+        toast({
+          title: 'Éxito',
+          description: 'Contenido agregado correctamente. Procesamiento iniciado.',
+        })
+        loadStats()
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Error agregando contenido',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive'
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  // Función para eliminar fuente
+  const handleDeleteSource = async (sourceId: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta fuente? Esta acción no se puede deshacer.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/knowledge/${sourceId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setSources(prev => prev.filter(source => source.id !== sourceId))
+        toast({
+          title: 'Éxito',
+          description: 'Fuente eliminada correctamente',
+        })
+        loadStats()
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Error eliminando fuente',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  // Función para reprocesar fuente
+  const handleReprocessSource = async (sourceId: string) => {
+    try {
+      const response = await fetch(`/api/knowledge/${sourceId}/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ forceReprocess: true })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast({
+          title: 'Éxito',
+          description: 'Reprocesamiento iniciado',
+        })
+        // Actualizar el estado de la fuente
+        setSources(prev => prev.map(source => 
+          source.id === sourceId 
+            ? { ...source, status: KnowledgeSourceStatus.PROCESSING }
+            : source
+        ))
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Error reprocesando fuente',
+          variant: 'destructive'
+        })
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Error de conexión',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Base de Conocimiento</h1>
+          <p className="text-gray-600 mt-1">
+            Entrena tu IA con documentos, páginas web y contenido específico de tu negocio
+          </p>
+        </div>
+        
+        <div className="flex gap-2">
+          <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Agregar Conocimiento
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Agregar Fuente de Conocimiento</DialogTitle>
+                <DialogDescription>
+                  Elige el tipo de contenido que quieres agregar a tu base de conocimiento.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setShowFileUploader(true)
+                  }}
+                >
+                  <Upload className="h-6 w-6" />
+                  <span>Subir Archivo</span>
+                  <span className="text-xs text-gray-500">PDF, DOC, TXT</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setShowAddUrlModal(true)
+                  }}
+                >
+                  <Globe className="h-6 w-6" />
+                  <span>Página Web</span>
+                  <span className="text-xs text-gray-500">URL o sitio web</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setShowAddTextModal(true)
+                  }}
+                >
+                  <Type className="h-6 w-6" />
+                  <span>Texto Manual</span>
+                  <span className="text-xs text-gray-500">Escribir directamente</span>
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Estadísticas */}
+      {stats && <KnowledgeStatsWidget stats={stats} />}
+
+      {/* Filtros y búsqueda */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Fuentes de Conocimiento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 mb-6">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar fuentes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="ACTIVE">Activo</SelectItem>
+                <SelectItem value="PROCESSING,CHUNKING,EMBEDDING">Procesando</SelectItem>
+                <SelectItem value="ERROR">Con Error</SelectItem>
+                <SelectItem value="DISABLED">Deshabilitado</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filtrar por tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="FILE">Archivos</SelectItem>
+                <SelectItem value="URL">URLs</SelectItem>
+                <SelectItem value="TEXT">Texto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Tabla de fuentes */}
+          <KnowledgeSourcesTable
+            sources={sources}
+            loading={loading}
+            onDelete={handleDeleteSource}
+            onReprocess={handleReprocessSource}
+            onRefresh={loadData}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Modal para agregar URL */}
+      <Dialog open={showAddUrlModal} onOpenChange={setShowAddUrlModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar Página Web</DialogTitle>
+            <DialogDescription>
+              Agrega una URL para que nuestra IA extraiga el contenido automáticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="url">URL *</Label>
+              <Input
+                id="url"
+                placeholder="https://ejemplo.com"
+                value={urlForm.url}
+                onChange={(e) => setUrlForm(prev => ({ ...prev, url: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="url-name">Nombre *</Label>
+              <Input
+                id="url-name"
+                placeholder="Mi sitio web"
+                value={urlForm.name}
+                onChange={(e) => setUrlForm(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="url-tags">Etiquetas (opcional)</Label>
+              <Input
+                id="url-tags"
+                placeholder="web, productos, precios"
+                value={urlForm.tags}
+                onChange={(e) => setUrlForm(prev => ({ ...prev, tags: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowAddUrlModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddUrl} disabled={processing}>
+              {processing ? 'Procesando...' : 'Agregar URL'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para agregar texto */}
+      <Dialog open={showAddTextModal} onOpenChange={setShowAddTextModal}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Agregar Contenido de Texto</DialogTitle>
+            <DialogDescription>
+              Escribe o pega el contenido que quieres que tu IA aprenda.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="text-name">Nombre *</Label>
+              <Input
+                id="text-name"
+                placeholder="Mi documento de texto"
+                value={textForm.name}
+                onChange={(e) => setTextForm(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="text-content">Contenido *</Label>
+              <Textarea
+                id="text-content"
+                placeholder="Escribe aquí el contenido que quieres que tu IA aprenda..."
+                rows={10}
+                value={textForm.content}
+                onChange={(e) => setTextForm(prev => ({ ...prev, content: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="text-tags">Etiquetas (opcional)</Label>
+              <Input
+                id="text-tags"
+                placeholder="manual, guía, procedimientos"
+                value={textForm.tags}
+                onChange={(e) => setTextForm(prev => ({ ...prev, tags: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowAddTextModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAddText} disabled={processing}>
+              {processing ? 'Procesando...' : 'Agregar Contenido'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para subir archivos */}
+      <Dialog open={showFileUploader} onOpenChange={setShowFileUploader}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Subir Documentos</DialogTitle>
+            <DialogDescription>
+              Sube documentos PDF, DOC, TXT u otros archivos para entrenar tu IA.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <KnowledgeUploader
+              onUploadSuccess={handleUploadSuccess}
+              onCancel={() => setShowFileUploader(false)}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
