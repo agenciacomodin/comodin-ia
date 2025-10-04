@@ -15,33 +15,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buscar usuario con el token
-    const user = await prisma.user.findFirst({
+    // Buscar token válido en la tabla PasswordResetToken
+    const resetToken = await prisma.passwordResetToken.findFirst({
       where: {
-        resetToken: token,
-        resetExpires: {
+        token: token,
+        expiresAt: {
           gt: new Date(),
         },
+        used: false,
       },
     });
 
-    if (!user) {
+    if (!resetToken) {
       return NextResponse.json(
         { error: 'Token inválido o expirado' },
         { status: 400 }
       );
     }
 
+    // Buscar el usuario por email
+    const user = await prisma.user.findUnique({
+      where: { email: resetToken.email },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Usuario no encontrado' },
+        { status: 404 }
+      );
+    }
+
     // Hash de la nueva contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Actualizar contraseña y limpiar token
+    // Actualizar contraseña del usuario
     await prisma.user.update({
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        resetToken: null,
-        resetExpires: null,
+      },
+    });
+
+    // Marcar el token como usado
+    await prisma.passwordResetToken.update({
+      where: { id: resetToken.id },
+      data: {
+        used: true,
       },
     });
 
