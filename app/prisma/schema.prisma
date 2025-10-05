@@ -1068,36 +1068,43 @@ model WhatsAppChannel {
   connectionType   WhatsAppConnectionType   // Tipo de conexión
   status           WhatsAppConnectionStatus @default(DISCONNECTED)
   
+  // Evolution API - Identificador de instancia
+  instanceId       String?                  @unique // ID de la instancia en Evolution API
+  webhookUrl       String?                  // URL del webhook configurado
+  
   // Datos específicos para conexión QR
-  qrCode           String?                  // Código QR generado para conexión
-  qrExpiration     DateTime?               // Fecha de expiración del QR
+  qrCode           String?                  @db.Text // Código QR generado para conexión (base64)
+  qrExpiration     DateTime?                // Fecha de expiración del QR
   
   // Datos específicos para API oficial
-  accessToken      String?                 // Token de acceso de Meta
-  appId            String?                 // ID de la aplicación de Meta
-  appSecret        String?                 // Secreto de la aplicación
-  webhookVerifyToken String?              // Token para verificar webhook
-  phoneNumberId    String?                 // ID del número de teléfono en la API
-  businessAccountId String?               // ID de la cuenta de negocio
+  accessToken      String?                  // Token de acceso de Meta
+  appId            String?                  // ID de la aplicación de Meta
+  appSecret        String?                  // Secreto de la aplicación
+  webhookVerifyToken String?               // Token para verificar webhook
+  phoneNumberId    String?                  // ID del número de teléfono en la API
+  businessAccountId String?                // ID de la cuenta de negocio
   
   // Configuración del canal
   isActive         Boolean                  @default(true)
   isDefault        Boolean                  @default(false) // Canal por defecto
   
   // Configuración de mensajes automáticos
-  welcomeMessage   String?                 // Mensaje de bienvenida automático
-  autoReplyMessage String?                 // Mensaje de respuesta automática
-  workingHours     Json?                   // Horario de atención {"start": "09:00", "end": "18:00"}
+  welcomeMessage   String?                  // Mensaje de bienvenida automático
+  autoReplyMessage String?                  // Mensaje de respuesta automática
+  workingHours     Json?                    // Horario de atención {"start": "09:00", "end": "18:00"}
+  
+  // Estado y errores
+  errorMessage     String?                  @db.Text // Último error de conexión
   
   // Estadísticas del canal
-  messagesReceived Int                     @default(0)
-  messagesSent     Int                     @default(0)
-  lastActivity     DateTime?               // Última actividad
+  messagesReceived Int                      @default(0)
+  messagesSent     Int                      @default(0)
+  lastActivity     DateTime?                // Última actividad
   
   // Timestamps
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  connectedAt      DateTime?               // Fecha de última conexión exitosa
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  connectedAt      DateTime?                // Fecha de última conexión exitosa
   
   // Relaciones
   conversations    Conversation[]
@@ -1107,6 +1114,7 @@ model WhatsAppChannel {
   @@index([organizationId])
   @@index([status])
   @@index([connectionType])
+  @@index([instanceId])
   @@map("whatsapp_channels")
 }
 
