@@ -1590,8 +1590,15 @@ model KnowledgeChunk {
   updatedAt        DateTime              @updatedAt
   processedAt      DateTime?             // Fecha de procesamiento del embedding
   
+  // Vector embedding para búsqueda semántica con pgvector
+  // Usando 1536 dimensiones para OpenAI text-embedding-3-small
+  embedding        Unsupported("vector(1536)")?
+  
+  // Relación Multi-tenant
+  organizationId   String
+  
   // Relaciones
-  embeddings       KnowledgeEmbedding[]  // Embeddings vectoriales
+  embeddings       KnowledgeEmbedding[]  // Embeddings vectoriales (legacy)
   
   @@unique([sourceId, chunkIndex]) // Índice único por fuente
   @@index([sourceId])
@@ -1599,6 +1606,7 @@ model KnowledgeChunk {
   @@index([contentQuality])
   @@index([usageCount])
   @@index([lastUsedAt])
+  @@index([organizationId])
   @@map("knowledge_chunks")
 }
 
