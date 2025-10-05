@@ -114,6 +114,9 @@ model Organization {
   currency    String   @default("MXN")
   language    String   @default("es")
   
+  // Demo data flag (para filtrar datos de prueba)
+  isDemoData  Boolean  @default(false)
+  
   // Fechas
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
