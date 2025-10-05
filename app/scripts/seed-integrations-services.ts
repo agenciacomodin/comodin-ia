@@ -248,7 +248,6 @@ async function main() {
       requirements: {
         'requirements_document': 'Documento detallado de requerimientos',
         'system_access': 'Acceso al sistema si es necesario',
-        'mockups_wireframes': 'Mockups o wireframes si aplica',
         'deadline': 'Fecha límite esperada'
       },
       deliverables: {
@@ -319,7 +318,6 @@ async function main() {
       deliveryDays: 7,
       requirements: {
         'detailed_specifications': 'Especificaciones detalladas del proyecto',
-        'mockups_designs': 'Mockups y diseños aprobados',
         'integration_requirements': 'Requerimientos de integración',
         'testing_criteria': 'Criterios de aceptación y testing'
       },

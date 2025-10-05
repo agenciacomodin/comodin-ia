@@ -1,0 +1,1188 @@
+1
+
+INSTRUCCIONES PARA AGENTE DE DISEÑO Y
+DESARROLLO
+Plan de Remediación Completo - COMODÍN IA V2
+
+Contexto General
+Has creado una aplicación V2 con un diseño excelente y moderno. La infraestructura está correcta‐
+mente configurada y el aislamiento de datos funciona perfectamente. Sin embargo, varias APIs críticas
+no están implementadas y las integraciones externas tienen credenciales placeholder.
+Servidor: root@89.116.73.62 (password: Komodin123456?)
+Directorio: /srv/comodin_ia/comodin_ia/app
+Branch: v2/production-ready-clean
+Base de datos: PostgreSQL local (comodin_ia)
+PM2 Process: comodin-ia
+
+SPRINT 1 - FUNCIONALIDAD CORE (Semana 1) ⚠️
+CRÍTICO
+Tarea 1.1: Implementar API de Contactos
+Problema: /api/contacts devuelve 404 - el directorio no existe.
+Archivos a crear:
+app/api/contacts/
+├── route.ts (GET, POST)
+├── [id]/
+│
+└── route.ts (GET, PUT, DELETE)
+├── import/
+│
+└── route.ts (POST - importar CSV)
+└── export/
+└── route.ts (GET - exportar CSV)
+
+Implementación de app/api/contacts/route.ts :
+
+2
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { userHasPermission, Permission } from '@/lib/permissions'
+// GET /api/contacts - Listar contactos
+export async function GET(request: NextRequest) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+if (!userHasPermission(session.user.role, Permission.VIEW_CONTACTS)) {
+return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+}
+const { searchParams } = new URL(request.url)
+const search = searchParams.get('search') || ''
+const page = parseInt(searchParams.get('page') || '1')
+const limit = parseInt(searchParams.get('limit') || '20')
+const skip = (page - 1) * limit
+const where = {
+organizationId: session.user.organizationId,
+...(search && {
+OR: [
+{ name: { contains: search, mode: 'insensitive' } },
+{ email: { contains: search, mode: 'insensitive' } },
+{ phone: { contains: search, mode: 'insensitive' } }
+]
+})
+}
+const [contacts, total] = await Promise.all([
+prisma.contact.findMany({
+where,
+include: {
+tags: {
+include: {
+tag: true
+}
+},
+conversations: {
+take: 1,
+orderBy: { updatedAt: 'desc' }
+}
+},
+orderBy: { createdAt: 'desc' },
+skip,
+take: limit
+}),
+prisma.contact.count({ where })
+])
+return NextResponse.json({
+success: true,
+data: contacts,
+pagination: {
+page,
+limit,
+
+3
+total,
+totalPages: Math.ceil(total / limit)
+}
+})
+} catch (error) {
+console.error('Error al obtener contactos:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+// POST /api/contacts - Crear contacto
+export async function POST(request: NextRequest) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+if (!userHasPermission(session.user.role, Permission.CREATE_CONTACTS)) {
+return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+}
+const body = await request.json()
+const { name, email, phone, tags, ...otherData } = body
+// Validaciones
+if (!name) {
+return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 })
+}
+// Verificar duplicados
+if (email || phone) {
+const existing = await prisma.contact.findFirst({
+where: {
+organizationId: session.user.organizationId,
+OR: [
+...(email ? [{ email }] : []),
+...(phone ? [{ phone }] : [])
+]
+}
+})
+if (existing) {
+return NextResponse.json(
+{ error: 'Ya existe un contacto con ese email o teléfono' },
+{ status: 409 }
+)
+}
+}
+const contact = await prisma.contact.create({
+data: {
+organizationId: session.user.organizationId,
+name,
+email,
+phone,
+...otherData,
+...(tags && tags.length > 0 && {
+tags: {
+
+4
+create: tags.map((tagId: string) => ({
+tag: { connect: { id: tagId } }
+}))
+}
+})
+},
+include: {
+tags: {
+include: {
+tag: true
+}
+}
+}
+})
+return NextResponse.json({
+success: true,
+data: contact
+}, { status: 201 })
+} catch (error) {
+console.error('Error al crear contacto:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+
+Implementación de app/api/contacts/[id]/route.ts :
+
+5
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { userHasPermission, Permission } from '@/lib/permissions'
+// GET /api/contacts/[id]
+export async function GET(
+request: NextRequest,
+{ params }: { params: { id: string } }
+) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+const contact = await prisma.contact.findFirst({
+where: {
+id: params.id,
+organizationId: session.user.organizationId
+},
+include: {
+tags: {
+include: {
+tag: true
+}
+},
+conversations: {
+orderBy: { updatedAt: 'desc' },
+take: 10
+},
+notes: {
+orderBy: { createdAt: 'desc' }
+}
+}
+})
+if (!contact) {
+return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+}
+return NextResponse.json({
+success: true,
+data: contact
+})
+} catch (error) {
+console.error('Error al obtener contacto:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+// PUT /api/contacts/[id]
+export async function PUT(
+request: NextRequest,
+{ params }: { params: { id: string } }
+) {
+try {
+
+6
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+if (!userHasPermission(session.user.role, Permission.EDIT_CONTACTS)) {
+return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+}
+const body = await request.json()
+const { tags, ...updateData } = body
+// Verificar que el contacto pertenece a la organización
+const existing = await prisma.contact.findFirst({
+where: {
+id: params.id,
+organizationId: session.user.organizationId
+}
+})
+if (!existing) {
+return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+}
+const contact = await prisma.contact.update({
+where: { id: params.id },
+data: {
+...updateData,
+...(tags && {
+tags: {
+deleteMany: {},
+create: tags.map((tagId: string) => ({
+tag: { connect: { id: tagId } }
+}))
+}
+})
+},
+include: {
+tags: {
+include: {
+tag: true
+}
+}
+}
+})
+return NextResponse.json({
+success: true,
+data: contact
+})
+} catch (error) {
+console.error('Error al actualizar contacto:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+// DELETE /api/contacts/[id]
+export async function DELETE(
+request: NextRequest,
+
+7
+{ params }: { params: { id: string } }
+) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+if (!userHasPermission(session.user.role, Permission.DELETE_CONTACTS)) {
+return NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 })
+}
+// Verificar que el contacto pertenece a la organización
+const existing = await prisma.contact.findFirst({
+where: {
+id: params.id,
+organizationId: session.user.organizationId
+}
+})
+if (!existing) {
+return NextResponse.json({ error: 'Contacto no encontrado' }, { status: 404 })
+}
+await prisma.contact.delete({
+where: { id: params.id }
+})
+return NextResponse.json({
+success: true,
+message: 'Contacto eliminado correctamente'
+})
+} catch (error) {
+console.error('Error al eliminar contacto:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+
+Criterio de Aceptación:
+- ✅ GET /api/contacts devuelve lista paginada
+- ✅ POST /api/contacts crea contacto nuevo
+- ✅ GET /api/contacts/[id] devuelve contacto específico
+- ✅ PUT /api/contacts/[id] actualiza contacto
+- ✅ DELETE /api/contacts/[id] elimina contacto
+- ✅ Todos los endpoints filtran por organizationId
+- ✅ Validación de permisos por rol
+
+Tarea 1.2: Implementar API de Knowledge Base
+Problema: /api/knowledge-base devuelve 404 - el directorio no existe.
+Archivos a crear:
+
+8
+
+app/api/knowledge-base/
+├── route.ts (GET, DELETE)
+├── upload/
+│
+└── route.ts (POST)
+├── [id]/
+│
+└── route.ts (GET, DELETE)
+└── search/
+└── route.ts (POST)
+
+Paso 1: Configurar pgvector en PostgreSQL
+# Conectar al servidor
+ssh root@89.116.73.62
+# Instalar pgvector
+sudo apt-get update
+sudo apt-get install -y postgresql-15-pgvector
+# Conectar a PostgreSQL
+sudo -u postgres psql -d comodin_ia
+# Habilitar extensión
+CREATE EXTENSION IF NOT EXISTS vector;
+# Verificar
+\dx vector
+# Salir
+\q
+
+Paso 2: Actualizar Prisma Schema
+Agregar al archivo prisma/schema.prisma :
+model KnowledgeEmbedding {
+id
+String
+@id @default(cuid())
+chunkId
+String
+chunk
+KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Ca
+scade)
+// Vector embedding (1536 dimensiones para OpenAI text-embedding-3-small)
+embedding Unsupported("vector(1536)")
+createdAt DateTime @default(now())
+@@index([chunkId])
+@@map("knowledge_embeddings")
+}
+
+Ejecutar migración:
+cd /srv/comodin_ia/comodin_ia/app
+npx prisma migrate dev --name add_vector_support
+
+Paso 3: Configurar OpenAI API Key Real
+
+9
+
+# Editar .env
+nano /srv/comodin_ia/comodin_ia/app/.env
+# Reemplazar:
+OPENAI_API_KEY=sk-tu_clave_de_openai_aqui
+# Con tu API key real de OpenAI:
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+# Guardar y reiniciar
+pm2 restart comodin-ia
+
+Paso 4: Implementar servicio de embeddings
+Crear lib/services/embeddings.ts :
+
+10
+
+import OpenAI from 'openai'
+const openai = new OpenAI({
+apiKey: process.env.OPENAI_API_KEY
+})
+export async function generateEmbedding(text: string): Promise<number[]> {
+try {
+const response = await openai.embeddings.create({
+model: 'text-embedding-3-small',
+input: text,
+encoding_format: 'float'
+})
+return response.data[0].embedding
+} catch (error) {
+console.error('Error generando embedding:', error)
+throw new Error('Error al generar embedding')
+}
+}
+export async function searchSimilar(
+embedding: number[],
+organizationId: string,
+limit: number = 5
+): Promise<any[]> {
+// Usar pgvector para búsqueda de similitud
+const results = await prisma.$queryRaw`
+SELECT
+ke.id,
+kc.id as chunk_id,
+kc.content,
+kc."sourceId",
+ks.title as source_title,
+ks.type as source_type,
+1 - (ke.embedding <=> ${embedding}::vector) as similarity
+FROM knowledge_embeddings ke
+JOIN knowledge_chunks kc ON ke."chunkId" = kc.id
+JOIN knowledge_sources ks ON kc."sourceId" = ks.id
+WHERE ks."organizationId" = ${organizationId}
+ORDER BY ke.embedding <=> ${embedding}::vector
+LIMIT ${limit}
+`
+return results
+}
+
+Paso 5: Implementar API de upload
+Crear app/api/knowledge-base/upload/route.ts :
+
+11
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { generateEmbedding } from '@/lib/services/embeddings'
+import pdf from 'pdf-parse'
+import mammoth from 'mammoth'
+export async function POST(request: NextRequest) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+const formData = await request.formData()
+const file = formData.get('file') as File
+const title = formData.get('title') as string || file.name
+if (!file) {
+return NextResponse.json({ error: 'No se proporcionó archivo' }, { status: 400 }
+)
+}
+// Validar tipo de archivo
+const allowedTypes = [
+'application/pdf',
+'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+'text/plain',
+'text/markdown'
+]
+if (!allowedTypes.includes(file.type)) {
+return NextResponse.json(
+{ error: 'Tipo de archivo no soportado' },
+{ status: 400 }
+)
+}
+// Extraer texto del archivo
+const buffer = Buffer.from(await file.arrayBuffer())
+let text = ''
+if (file.type === 'application/pdf') {
+const data = await pdf(buffer)
+text = data.text
+} else if (file.type === 'application/vnd.openxmlformats-officedocu‐
+ment.wordprocessingml.document') {
+const result = await mammoth.extractRawText({ buffer })
+text = result.value
+} else {
+text = buffer.toString('utf-8')
+}
+// Crear source
+const source = await prisma.knowledgeSource.create({
+data: {
+organizationId: session.user.organizationId,
+title,
+type: 'DOCUMENT',
+content: text,
+metadata: {
+
+12
+filename: file.name,
+size: file.size,
+mimeType: file.type
+}
+}
+})
+// Dividir en chunks (cada 1000 caracteres con overlap de 200)
+const chunkSize = 1000
+const overlap = 200
+const chunks: string[] = []
+for (let i = 0; i < text.length; i += chunkSize - overlap) {
+chunks.push(text.slice(i, i + chunkSize))
+}
+// Crear chunks y embeddings
+for (let i = 0; i < chunks.length; i++) {
+const chunkText = chunks[i]
+const chunk = await prisma.knowledgeChunk.create({
+data: {
+sourceId: source.id,
+content: chunkText,
+chunkIndex: i,
+metadata: {
+length: chunkText.length
+}
+}
+})
+// Generar embedding
+const embedding = await generateEmbedding(chunkText)
+// Guardar embedding
+await prisma.$executeRaw`
+INSERT INTO knowledge_embeddings (id, "chunkId", embedding, "createdAt")
+VALUES (${chunk.id + '_emb'}, ${chunk.id}, ${embedding}::vector, NOW())
+`
+}
+return NextResponse.json({
+success: true,
+data: {
+sourceId: source.id,
+title: source.title,
+chunksCreated: chunks.length
+}
+}, { status: 201 })
+} catch (error) {
+console.error('Error subiendo archivo:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+
+Paso 6: Implementar API de búsqueda
+Crear app/api/knowledge-base/search/route.ts :
+
+13
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { generateEmbedding, searchSimilar } from '@/lib/services/embeddings'
+export async function POST(request: NextRequest) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+const { query, limit = 5 } = await request.json()
+if (!query) {
+return NextResponse.json({ error: 'Query es requerido' }, { status: 400 })
+}
+// Generar embedding de la query
+const queryEmbedding = await generateEmbedding(query)
+// Buscar chunks similares
+const results = await searchSimilar(
+queryEmbedding,
+session.user.organizationId,
+limit
+)
+return NextResponse.json({
+success: true,
+data: results
+})
+} catch (error) {
+console.error('Error en búsqueda:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+
+Criterio de Aceptación:
+- ✅ Usuarios pueden subir PDF, DOCX, TXT
+- ✅ Documentos se procesan y dividen en chunks
+- ✅ Embeddings se generan con OpenAI
+- ✅ Embeddings se guardan en PostgreSQL con pgvector
+- ✅ Búsqueda semántica funciona
+- ✅ Resultados ordenados por similitud
+
+Tarea 1.3: Implementar API de Agentes RAG
+Problema: /api/agents devuelve 404 - el directorio no existe.
+Archivos a crear:
+
+14
+
+app/api/agents/
+├── route.ts (GET, POST)
+├── [id]/
+│
+├── route.ts (GET, PUT, DELETE)
+│
+└── chat/
+│
+└── route.ts (POST)
+└── test/
+└── route.ts (POST)
+
+Implementación de app/api/agents/route.ts :
+
+15
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+// GET /api/agents
+export async function GET(request: NextRequest) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+const agents = await prisma.rAGAgent.findMany({
+where: {
+organizationId: session.user.organizationId
+},
+include: {
+knowledgeBases: {
+include: {
+knowledgeSource: {
+select: {
+id: true,
+title: true,
+type: true
+}
+}
+}
+},
+_count: {
+select: {
+conversations: true
+}
+}
+},
+orderBy: { createdAt: 'desc' }
+})
+return NextResponse.json({
+success: true,
+data: agents
+})
+} catch (error) {
+console.error('Error al obtener agentes:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+// POST /api/agents
+export async function POST(request: NextRequest) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+const body = await request.json()
+const {
+
+16
+name,
+description,
+systemPrompt,
+model = 'gpt-4o-mini',
+temperature = 0.7,
+knowledgeSourceIds = []
+} = body
+if (!name) {
+return NextResponse.json({ error: 'El nombre es requerido' }, { status: 400 })
+}
+const agent = await prisma.rAGAgent.create({
+data: {
+organizationId: session.user.organizationId,
+name,
+description,
+systemPrompt,
+model,
+temperature,
+isActive: true,
+knowledgeBases: {
+create: knowledgeSourceIds.map((sourceId: string) => ({
+knowledgeSource: {
+connect: { id: sourceId }
+}
+}))
+}
+},
+include: {
+knowledgeBases: {
+include: {
+knowledgeSource: true
+}
+}
+}
+})
+return NextResponse.json({
+success: true,
+data: agent
+}, { status: 201 })
+} catch (error) {
+console.error('Error al crear agente:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+
+Implementación de app/api/agents/[id]/chat/route.ts :
+
+17
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { generateEmbedding, searchSimilar } from '@/lib/services/embeddings'
+import OpenAI from 'openai'
+const openai = new OpenAI({
+apiKey: process.env.OPENAI_API_KEY
+})
+export async function POST(
+request: NextRequest,
+{ params }: { params: { id: string } }
+) {
+try {
+const session = await getServerSession(authOptions)
+if (!session?.user?.organizationId) {
+return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+}
+const { message, conversationId } = await request.json()
+if (!message) {
+return NextResponse.json({ error: 'Mensaje es requerido' }, { status: 400 })
+}
+// Obtener agente
+const agent = await prisma.rAGAgent.findFirst({
+where: {
+id: params.id,
+organizationId: session.user.organizationId
+}
+})
+if (!agent) {
+return NextResponse.json({ error: 'Agente no encontrado' }, { status: 404 })
+}
+// Buscar contexto relevante en knowledge base
+const queryEmbedding = await generateEmbedding(message)
+const relevantChunks = await searchSimilar(
+queryEmbedding,
+session.user.organizationId,
+5
+)
+// Construir contexto
+const context = relevantChunks
+.map(chunk => chunk.content)
+.join('\n\n---\n\n')
+// Obtener o crear conversación
+let conversation
+if (conversationId) {
+conversation = await prisma.rAGAgentConversation.findFirst({
+where: {
+id: conversationId,
+agentId: params.id,
+organizationId: session.user.organizationId
+},
+include: {
+
+18
+messages: {
+orderBy: { createdAt: 'asc' },
+take: 10
+}
+}
+})
+} else {
+conversation = await prisma.rAGAgentConversation.create({
+data: {
+agentId: params.id,
+organizationId: session.user.organizationId,
+title: message.slice(0, 50)
+},
+include: {
+messages: true
+}
+})
+}
+// Guardar mensaje del usuario
+await prisma.rAGAgentMessage.create({
+data: {
+conversationId: conversation.id,
+organizationId: session.user.organizationId,
+role: 'user',
+content: message
+}
+})
+// Construir mensajes para OpenAI
+const messages = [
+{
+role: 'system',
+content: `${agent.systemPrompt}\n\nContexto relevante de la base de
+conocimiento:\n${context}`
+},
+...conversation.messages.map(msg => ({
+role: msg.role as 'user' | 'assistant',
+content: msg.content
+})),
+{
+role: 'user',
+content: message
+}
+]
+// Generar respuesta con OpenAI
+const completion = await openai.chat.completions.create({
+model: agent.model,
+messages: messages as any,
+temperature: agent.temperature,
+max_tokens: 1000
+})
+const assistantMessage = completion.choices[0].message.content
+// Guardar respuesta del asistente
+await prisma.rAGAgentMessage.create({
+data: {
+conversationId: conversation.id,
+organizationId: session.user.organizationId,
+role: 'assistant',
+content: assistantMessage || ''
+
+19
+}
+})
+return NextResponse.json({
+success: true,
+data: {
+conversationId: conversation.id,
+message: assistantMessage,
+sources: relevantChunks.map(chunk => ({
+title: chunk.source_title,
+type: chunk.source_type,
+similarity: chunk.similarity
+}))
+}
+})
+} catch (error) {
+console.error('Error en chat con agente:', error)
+return NextResponse.json(
+{ error: 'Error interno del servidor' },
+{ status: 500 }
+)
+}
+}
+
+Criterio de Aceptación:
+- ✅ Usuarios pueden crear agentes RAG
+- ✅ Agentes se configuran con prompt y fuentes
+- ✅ Chat con agente funciona
+- ✅ Agente busca contexto en knowledge base
+- ✅ Respuestas incluyen fuentes citadas
+- ✅ Conversaciones se guardan
+
+Tarea 1.4: Corregir Errores de Prisma Schema
+Problema 1: Campo plan no existe en Organizations
+# Conectar al servidor
+ssh root@89.116.73.62
+cd /srv/comodin_ia/comodin_ia/app
+# Editar schema
+nano prisma/schema.prisma
+
+Buscar el modelo Organization y verificar que tenga el campo plan :
+model Organization {
+// ... otros campos ...
+// Si no existe, agregar:
+plan SubscriptionPlan @default(FREE)
+// ... resto del modelo ...
+}
+
+20
+Problema 2: Campo resetToken no existe en Users
+Agregar al modelo User :
+model User {
+// ... otros campos ...
+// Agregar campos para reset de contraseña:
+resetToken
+String?
+resetExpires DateTime?
+// ... resto del modelo ...
+}
+
+Ejecutar migración:
+npx prisma migrate dev --name fix_missing_fields
+npx prisma generate
+pm2 restart comodin-ia
+
+Criterio de Aceptación:
+- ✅ No más errores de Prisma en logs
+- ✅ Campos plan y resetToken funcionan
+- ✅ Aplicación reinicia sin errores
+
+SPRINT 2 - INTEGRACIONES (Semana 2)
+Tarea 2.1: Configurar Evolution API para WhatsApp
+Paso 1: Instalar Evolution API
+# Conectar al servidor
+ssh root@89.116.73.62
+# Crear directorio
+mkdir -p /srv/evolution-api
+cd /srv/evolution-api
+# Descargar Docker Compose
+wget https://raw.githubusercontent.com/EvolutionAPI/evolution-api/main/Docker/dockercompose.yaml
+# Editar configuración
+nano docker-compose.yaml
+
+Configurar variables:
+environment:
+- AUTHENTICATION_API_KEY=tu_clave_super_segura_aqui_2024
+- DATABASE_ENABLED=true
+- DATABASE_CONNECTION_URI=postgresql://comodin_user:ComodinDB2024!@localhost:5432/
+evolution_api
+
+21
+Paso 2: Iniciar Evolution API
+docker-compose up -d
+# Verificar
+docker-compose logs -f
+
+Paso 3: Actualizar .env de la aplicación
+cd /srv/comodin_ia/comodin_ia/app
+nano .env
+
+Actualizar:
+EVOLUTION_API_URL=http://localhost:8080
+EVOLUTION_API_KEY=tu_clave_super_segura_aqui_2024
+
+Paso 4: Implementar integración
+Crear lib/services/evolution-api.ts :
+
+22
+
+import axios from 'axios'
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY
+const api = axios.create({
+baseURL: EVOLUTION_API_URL,
+headers: {
+'apikey': EVOLUTION_API_KEY
+}
+})
+export async function createInstance(instanceName: string) {
+const response = await api.post('/instance/create', {
+instanceName,
+qrcode: true,
+integration: 'WHATSAPP-BAILEYS'
+})
+return response.data
+}
+export async function getQRCode(instanceName: string) {
+const response = await api.get(`/instance/qrcode/${instanceName}`)
+return response.data
+}
+export async function sendMessage(instanceName: string, number: string, message: strin
+g) {
+const response = await api.post(`/message/sendText/${instanceName}`, {
+number,
+text: message
+})
+return response.data
+}
+export async function getInstanceStatus(instanceName: string) {
+const response = await api.get(`/instance/connectionState/${instanceName}`)
+return response.data
+}
+
+Actualizar app/api/integrations/whatsapp/route.ts para usar Evolution API real.
+Criterio de Aceptación:
+- ✅ Evolution API corriendo en Docker
+- ✅ QR real se genera
+- ✅ Usuarios pueden escanear y conectar
+- ✅ Mensajes se envían y reciben
+- ✅ Webhook recibe eventos
+
+Tarea 2.2: Configurar Stripe para Pagos
+Paso 1: Obtener credenciales reales de Stripe
+1. Ir a https://dashboard.stripe.com/apikeys
+2. Copiar claves de producción o test
+3. Configurar webhook en https://dashboard.stripe.com/webhooks
+
+23
+Paso 2: Actualizar .env
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxx
+STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx
+
+Paso 3: Crear productos en Stripe
+# Usar Stripe CLI o Dashboard para crear:
+# - Plan FREE (gratis)
+# - Plan STARTER ($29/mes)
+# - Plan PREMIUM ($99/mes)
+# - Plan ENTERPRISE ($299/mes)
+
+Paso 4: Implementar webhook
+Actualizar app/api/webhooks/stripe/route.ts para manejar eventos reales.
+Criterio de Aceptación:
+- ✅ Usuarios pueden guardar tarjeta
+- ✅ Cambio de plan funciona
+- ✅ Pagos se procesan
+- ✅ Webhooks actualizan suscripciones
+
+SPRINT 3 - MEJORAS UI/UX (3-5 días)
+Tarea 3.1: Eliminar Mock Data de Componentes
+Archivos a modificar:
+1. components/contacts/contacts-manager.tsx
+2. components/analytics/advanced-dashboard.tsx
+3. components/reports/reports-manager.tsx
+4. app/(authenticated)/inbox/page.tsx
+Patrón a seguir:
+
+24
+
+// ANTES (con mock data):
+const mockContacts = [
+{ name: 'Juan Pérez', ... },
+{ name: 'María García', ... }
+]
+// DESPUÉS (con datos reales):
+const [contacts, setContacts] = useState([])
+const [loading, setLoading] = useState(true)
+useEffect(() => {
+fetchContacts()
+}, [])
+async function fetchContacts() {
+try {
+const response = await fetch('/api/contacts')
+const data = await response.json()
+setContacts(data.data || [])
+} catch (error) {
+console.error('Error:', error)
+} finally {
+setLoading(false)
+}
+}
+// Mostrar estado vacío si no hay datos
+if (loading) return <LoadingSpinner />
+if (contacts.length === 0) return <EmptyState />
+
+Criterio de Aceptación:
+- ✅ No más datos hardcodeados
+- ✅ Estados vacíos implementados
+- ✅ Loading states implementados
+- ✅ Error handling implementado
+
+Tarea 3.2: Corregir Soporte Técnico
+Problema: Error de validación en tipo de ticket.
+Solución:
+Verificar enum en prisma/schema.prisma :
+enum SupportServiceType {
+CONFIGURATION
+TECHNICAL
+BILLING
+GENERAL
+}
+
+Actualizar componente para usar valores correctos del enum.
+
+25
+
+VARIABLES DE ENTORNO REQUERIDAS
+Checklist de Configuración
+# Base de datos ✅
+DATABASE_URL=postgresql://comodin_user:ComodinDB2024!@localhost:5432/comodin_ia
+# NextAuth ✅
+NEXTAUTH_URL=https://comodinia.com
+NEXTAUTH_SECRET=tu_secret_aqui
+# OpenAI ⚠️ ACTUALIZAR
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxx
+# Evolution API ⚠️ ACTUALIZAR
+EVOLUTION_API_URL=http://localhost:8080
+EVOLUTION_API_KEY=tu_clave_real_aqui
+# Stripe ⚠️ ACTUALIZAR
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxx
+STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx
+# MercadoPago (opcional) ⚠️ ACTUALIZAR
+MERCADO_PAGO_ACCESS_TOKEN=APP_USR-xxxxxxxxxxxxx
+MERCADO_PAGO_PUBLIC_KEY=APP_USR-xxxxxxxxxxxxx
+
+COMANDOS ÚTILES
+Desarrollo Local
+# Conectar al servidor
+ssh root@89.116.73.62
+# Ir al directorio
+cd /srv/comodin_ia/comodin_ia/app
+# Ver logs
+pm2 logs comodin-ia
+# Reiniciar aplicación
+pm2 restart comodin-ia
+# Ejecutar migraciones
+npx prisma migrate dev
+# Generar cliente Prisma
+npx prisma generate
+# Ver base de datos
+PGPASSWORD='ComodinDB2024!' psql -h localhost -U comodin_user -d comodin_ia
+
+26
+
+Testing
+# Probar endpoint
+curl -X GET https://comodinia.com/api/contacts \
+-H "Authorization: Bearer TOKEN"
+# Ver estado de servicios
+systemctl status postgresql
+systemctl status nginx
+docker ps
+
+PRINCIPIOS DE DESARROLLO
+1. Aislamiento de datos: SIEMPRE filtrar por organizationId
+2. Validación: Validar inputs en frontend Y backend
+3. Manejo de errores: Try-catch en todos los endpoints
+4. Seguridad: Verificar permisos por rol
+5. Performance: Usar paginación en listas
+6. Testing: Probar cada funcionalidad antes de marcar completa
+
+ENTREGABLES POR SPRINT
+Sprint 1 (Semana 1)
+• ✅ API de contactos funcionando
+• ✅ API de knowledge base funcionando
+• ✅ API de agentes RAG funcionando
+• ✅ Errores de Prisma corregidos
+• ✅ OpenAI API configurado
+• ✅ pgvector configurado
+
+Sprint 2 (Semana 2)
+• ✅ Evolution API funcionando
+• ✅ WhatsApp QR real
+• ✅ Stripe configurado
+• ✅ Pagos funcionando
+
+Sprint 3 (3-5 días)
+• ✅ Mock data eliminado
+• ✅ Estados vacíos implementados
+• ✅ Soporte técnico corregido
+• ✅ UX pulido
+
+27
+
+NOTAS FINALES
+• Prioridad absoluta: Sprint 1 - Sin estas APIs, la aplicación no es funcional
+• Testing: Probar cada endpoint con Postman/curl antes de integrar en UI
+• Documentación: Actualizar README con nuevas configuraciones
+• Seguridad: Cambiar todas las credenciales placeholder antes de producción
+• Backup: Hacer backup de BD antes de migraciones importantes
+
+Documento generado el 2025-10-04
+Versión: 1.0
+
+

@@ -55,7 +55,11 @@ SMTP_FROM_NAME=COMODÍN IA
 SMTP_FROM_EMAIL=noreply@comodinia.com
 
 # GitHub (Para integraciones)
+<<<<<<< HEAD
 GITHUB_TOKEN=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
+=======
+GITHUB_TOKEN=YOUR_GITHUB_TOKEN_HERE
+>>>>>>> v2/production-ready-clean
 
 # Ambiente
 NODE_ENV=production

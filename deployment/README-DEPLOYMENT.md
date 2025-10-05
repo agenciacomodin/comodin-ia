@@ -47,7 +47,11 @@ docker-compose --version
 
 ```bash
 # Clonar repositorio (usando tu token de GitHub)
+<<<<<<< HEAD
 git clone https://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@github.com/tu-usuario/comodin-ia.git
+=======
+git clone https://YOUR_GITHUB_TOKEN_HERE@github.com/tu-usuario/comodin-ia.git
+>>>>>>> v2/production-ready-clean
 cd comodin-ia/deployment
 
 # Dar permisos de ejecución al script

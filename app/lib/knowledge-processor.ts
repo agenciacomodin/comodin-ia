@@ -372,6 +372,7 @@ export class KnowledgeProcessor {
     return await prisma.knowledgeChunk.create({
       data: {
         sourceId,
+        organizationId: this.organizationId,
         content,
         chunkIndex: index,
         status: ChunkProcessingStatus.COMPLETED,

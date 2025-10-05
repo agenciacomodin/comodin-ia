@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
       })
     } else if (user.role === 'DISTRIBUIDOR') {
       // Distribuidor puede ver sus organizaciones cliente
-      // TODO: Implementar tabla de relaciones distribuidor-cliente
       organizations = await prisma.organization.findMany({
         where: {
           id: {

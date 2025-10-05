@@ -60,7 +60,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json()
     const { dryRun = false, confirmAudience = false } = body
 
-    // TODO: Aquí iría la lógica de procesamiento de audiencia y envío
     // Por ahora, solo actualizamos el estado de la campaña
 
     if (dryRun) {

@@ -106,12 +106,16 @@ model Organization {
   // Control de uso (reseteo mensual)
   currentUsers      Int              @default(0)
   currentMessages   Int              @default(0)
+  currentIntegrations Int            @default(0)
   usageResetDate    DateTime?        // Fecha del próximo reseteo
   
   // Configuración de la organización
   timezone    String   @default("America/Mexico_City")
   currency    String   @default("MXN")
   language    String   @default("es")
+  
+  // Demo data flag (para filtrar datos de prueba)
+  isDemoData  Boolean  @default(false)
   
   // Fechas
   createdAt   DateTime @default(now())
@@ -1067,36 +1071,43 @@ model WhatsAppChannel {
   connectionType   WhatsAppConnectionType   // Tipo de conexión
   status           WhatsAppConnectionStatus @default(DISCONNECTED)
   
+  // Evolution API - Identificador de instancia
+  instanceId       String?                  @unique // ID de la instancia en Evolution API
+  webhookUrl       String?                  // URL del webhook configurado
+  
   // Datos específicos para conexión QR
-  qrCode           String?                  // Código QR generado para conexión
-  qrExpiration     DateTime?               // Fecha de expiración del QR
+  qrCode           String?                  @db.Text // Código QR generado para conexión (base64)
+  qrExpiration     DateTime?                // Fecha de expiración del QR
   
   // Datos específicos para API oficial
-  accessToken      String?                 // Token de acceso de Meta
-  appId            String?                 // ID de la aplicación de Meta
-  appSecret        String?                 // Secreto de la aplicación
-  webhookVerifyToken String?              // Token para verificar webhook
-  phoneNumberId    String?                 // ID del número de teléfono en la API
-  businessAccountId String?               // ID de la cuenta de negocio
+  accessToken      String?                  // Token de acceso de Meta
+  appId            String?                  // ID de la aplicación de Meta
+  appSecret        String?                  // Secreto de la aplicación
+  webhookVerifyToken String?               // Token para verificar webhook
+  phoneNumberId    String?                  // ID del número de teléfono en la API
+  businessAccountId String?                // ID de la cuenta de negocio
   
   // Configuración del canal
   isActive         Boolean                  @default(true)
   isDefault        Boolean                  @default(false) // Canal por defecto
   
   // Configuración de mensajes automáticos
-  welcomeMessage   String?                 // Mensaje de bienvenida automático
-  autoReplyMessage String?                 // Mensaje de respuesta automática
-  workingHours     Json?                   // Horario de atención {"start": "09:00", "end": "18:00"}
+  welcomeMessage   String?                  // Mensaje de bienvenida automático
+  autoReplyMessage String?                  // Mensaje de respuesta automática
+  workingHours     Json?                    // Horario de atención {"start": "09:00", "end": "18:00"}
+  
+  // Estado y errores
+  errorMessage     String?                  @db.Text // Último error de conexión
   
   // Estadísticas del canal
-  messagesReceived Int                     @default(0)
-  messagesSent     Int                     @default(0)
-  lastActivity     DateTime?               // Última actividad
+  messagesReceived Int                      @default(0)
+  messagesSent     Int                      @default(0)
+  lastActivity     DateTime?                // Última actividad
   
   // Timestamps
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  connectedAt      DateTime?               // Fecha de última conexión exitosa
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  connectedAt      DateTime?                // Fecha de última conexión exitosa
   
   // Relaciones
   conversations    Conversation[]
@@ -1106,6 +1117,7 @@ model WhatsAppChannel {
   @@index([organizationId])
   @@index([status])
   @@index([connectionType])
+  @@index([instanceId])
   @@map("whatsapp_channels")
 }
 
@@ -1589,8 +1601,15 @@ model KnowledgeChunk {
   updatedAt        DateTime              @updatedAt
   processedAt      DateTime?             // Fecha de procesamiento del embedding
   
+  // Vector embedding para búsqueda semántica con pgvector
+  // Usando 1536 dimensiones para OpenAI text-embedding-3-small
+  embedding        Unsupported("vector(1536)")?
+  
+  // Relación Multi-tenant
+  organizationId   String
+  
   // Relaciones
-  embeddings       KnowledgeEmbedding[]  // Embeddings vectoriales
+  embeddings       KnowledgeEmbedding[]  // Embeddings vectoriales (legacy)
   
   @@unique([sourceId, chunkIndex]) // Índice único por fuente
   @@index([sourceId])
@@ -1598,6 +1617,7 @@ model KnowledgeChunk {
   @@index([contentQuality])
   @@index([usageCount])
   @@index([lastUsedAt])
+  @@index([organizationId])
   @@map("knowledge_chunks")
 }
 

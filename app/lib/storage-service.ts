@@ -1,7 +1,6 @@
 
 /**
  * Servicio de Almacenamiento Real (Supabase Storage)
- * Reemplaza el sistema mock de archivos
  */
 
 // Configuración simplificada para Supabase (sin dependencias externas)

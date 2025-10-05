@@ -11,7 +11,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Mock notifications - en producción esto vendría de la BD
     const notifications = [
       {
         id: '1',

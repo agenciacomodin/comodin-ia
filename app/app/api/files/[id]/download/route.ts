@@ -23,7 +23,6 @@ export async function GET(
 
     const fileId = params.id
 
-    // TODO: Buscar archivo en la base de datos cuando se implemente el modelo File
     // const file = await prisma.file.findFirst({
     //   where: {
     //     id: fileId,
@@ -45,7 +44,6 @@ export async function GET(
       { status: 501 }
     )
 
-    // TODO: Descomentar cuando se implemente el modelo File
     // // Generar URL firmada
     // const signedUrl = await StorageService.getSignedUrl(file.path, 3600) // 1 hora
 

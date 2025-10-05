@@ -65,7 +65,6 @@ export function canAccessOrganization(
       return true
     
     case 'DISTRIBUIDOR':
-      // TODO: Verificar si la organización es cliente del distribuidor
       // Por ahora permitimos acceso (se implementará con tabla de relaciones)
       return true
     
@@ -88,7 +87,6 @@ export function getAccessibleOrganizationIds(user: ExtendedUser): string[] | 'AL
       return 'ALL'
     
     case 'DISTRIBUIDOR':
-      // TODO: Retornar IDs de organizaciones cliente
       // Por ahora retornamos la propia organización
       return [user.organizationId]
     

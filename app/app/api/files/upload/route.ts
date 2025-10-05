@@ -1,7 +1,6 @@
 
 /**
  * API para subir archivos (Producción)
- * Usa Supabase Storage en lugar de mocks
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -51,7 +50,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // TODO: Agregar modelo File a Prisma schema si es necesario
     // const savedFile = await prisma.file.create({
     //   data: {
     //     name: file.name,

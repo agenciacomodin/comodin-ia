@@ -231,13 +231,13 @@ export class SubscriptionService {
         organization.currentPlan,
         organization.currentUsers,
         organization.currentMessages,
-        0 // TODO: Implementar conteo de integraciones
+        organization.currentIntegrations || 0
       );
 
       return {
         currentUsers: organization.currentUsers,
         currentMessages: organization.currentMessages,
-        currentIntegrations: 0, // TODO: Implementar
+        currentIntegrations: organization.currentIntegrations || 0,
         limitsExceeded: limits.usersExceeded || limits.messagesExceeded || limits.integrationsExceeded,
         resetDate: organization.usageResetDate
       };
