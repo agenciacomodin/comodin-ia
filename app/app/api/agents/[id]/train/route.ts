@@ -6,12 +6,6 @@ import { prisma } from '@/lib/db';
 import { DocumentProcessor } from '@/lib/services/document-processor';
 import { generateEmbedding } from '@/lib/services/embeddings';
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable body parser for multipart/form-data
-  },
-};
-
 // POST /api/agents/[id]/train - Entrenar agente con documentos
 export async function POST(
   request: Request,
@@ -117,6 +111,7 @@ export async function POST(
             // Crear chunk
             const chunk = await prisma.knowledgeChunk.create({
               data: {
+                organizationId: agent.organizationId,
                 sourceId: knowledgeSource.id,
                 content: chunks[i],
                 chunkIndex: i,
@@ -147,6 +142,7 @@ export async function POST(
             // Crear chunk con error
             await prisma.knowledgeChunk.create({
               data: {
+                organizationId: agent.organizationId,
                 sourceId: knowledgeSource.id,
                 content: chunks[i],
                 chunkIndex: i,

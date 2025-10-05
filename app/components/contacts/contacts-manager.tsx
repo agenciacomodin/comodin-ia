@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { 
-  Users, Plus, Search, Phone, Mail, MessageSquare, Filter, Download, Upload, MoreHorizontal, Edit, Trash2
+  Users, Plus, Search, Phone, Mail, MessageSquare, Filter, Download, Upload, MoreHorizontal, Edit, Trash2, Loader2
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -25,59 +25,18 @@ import {
 interface Contact {
   id: string
   name: string
-  phone: string
-  email: string
-  status: 'active' | 'inactive' | 'pending' | 'vip'
-  type: 'client' | 'lead' | 'prospect'
-  channel: 'whatsapp' | 'email' | 'phone' | 'web'
-  lastActivity: string
+  phone: string | null
+  email: string | null
+  status?: 'active' | 'inactive' | 'pending' | 'vip'
+  type?: 'client' | 'lead' | 'prospect'
+  channel?: 'whatsapp' | 'email' | 'phone' | 'web'
+  lastActivity?: string
+  updatedAt?: string
 }
 
-const mockContacts: Contact[] = [
-  {
-    id: '1',
-    name: 'Juan Pérez',
-    phone: '+54 9 11 1234-5678',
-    email: 'juan.perez@email.com',
-    status: 'active',
-    type: 'client',
-    channel: 'whatsapp',
-    lastActivity: '5m'
-  },
-  {
-    id: '2',
-    name: 'María García',
-    phone: '+54 9 11 9876-5432',
-    email: 'maria.garcia@email.com',
-    status: 'pending',
-    type: 'lead',
-    channel: 'whatsapp',
-    lastActivity: '15m'
-  },
-  {
-    id: '3',
-    name: 'Carlos Rodríguez',
-    phone: '+54 9 11 5555-6666',
-    email: 'carlos.rodriguez@empresa.com',
-    status: 'inactive',
-    type: 'prospect',
-    channel: 'email',
-    lastActivity: '1h'
-  },
-  {
-    id: '4',
-    name: 'Ana Silva',
-    phone: '+54 9 11 7777-8888',
-    email: 'ana.silva@tienda.com',
-    status: 'vip',
-    type: 'client',
-    channel: 'whatsapp',
-    lastActivity: '2h'
-  }
-]
-
 export function ContactsManager() {
-  const [contacts] = useState<Contact[]>(mockContacts)
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
@@ -93,10 +52,36 @@ export function ContactsManager() {
 
   const { toast } = useToast()
 
+  // Cargar contactos al montar el componente
+  useEffect(() => {
+    fetchContacts()
+  }, [])
+
+  async function fetchContacts() {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/contacts')
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        setContacts(data.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar contactos:', error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los contactos",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredContacts = contacts.filter(contact => {
-    const matchesSearch = contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         contact.phone.includes(searchTerm) ||
-                         contact.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         contact.phone?.includes(searchTerm) ||
+                         contact.email?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = filterStatus === 'all' || contact.status === filterStatus
     const matchesType = filterType === 'all' || contact.type === filterType
@@ -104,20 +89,41 @@ export function ContactsManager() {
     return matchesSearch && matchesStatus && matchesType
   })
 
-  const handleAddContact = () => {
-    // Simular agregar contacto
-    toast({
-      title: "Contacto agregado",
-      description: `${newContact.name} ha sido agregado a tu lista de contactos.`,
-    })
-    setIsAddDialogOpen(false)
-    setNewContact({
-      name: '',
-      phone: '',
-      email: '',
-      type: 'lead',
-      channel: 'whatsapp'
-    })
+  const handleAddContact = async () => {
+    try {
+      const response = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContact)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast({
+          title: "Contacto agregado",
+          description: `${newContact.name} ha sido agregado a tu lista de contactos.`,
+        })
+        setIsAddDialogOpen(false)
+        setNewContact({
+          name: '',
+          phone: '',
+          email: '',
+          type: 'lead',
+          channel: 'whatsapp'
+        })
+        // Recargar contactos
+        fetchContacts()
+      } else {
+        throw new Error(data.error || 'Error al agregar contacto')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo agregar el contacto",
+        variant: "destructive"
+      })
+    }
   }
 
   const handleExport = () => {
@@ -292,7 +298,7 @@ export function ContactsManager() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="type">Tipo de contacto</Label>
-                  <Select value={newContact.type} onValueChange={(value: Contact['type']) => setNewContact({...newContact, type: value})}>
+                  <Select value={newContact.type} onValueChange={(value: string) => setNewContact({...newContact, type: value as Contact['type']})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -305,7 +311,7 @@ export function ContactsManager() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="channel">Canal preferido</Label>
-                  <Select value={newContact.channel} onValueChange={(value: Contact['channel']) => setNewContact({...newContact, channel: value})}>
+                  <Select value={newContact.channel} onValueChange={(value: string) => setNewContact({...newContact, channel: value as Contact['channel']})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -431,6 +437,30 @@ export function ContactsManager() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <p className="ml-3 text-gray-500">Cargando contactos...</p>
+              </div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {searchTerm || filterStatus !== 'all' || filterType !== 'all' ? 'No se encontraron contactos' : 'Aún no tienes contactos'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {searchTerm || filterStatus !== 'all' || filterType !== 'all' 
+                    ? 'Intenta ajustar los filtros de búsqueda'
+                    : 'Comienza agregando tu primer contacto para gestionar tu base de clientes'}
+                </p>
+                {!searchTerm && filterStatus === 'all' && filterType === 'all' && (
+                  <Button onClick={() => setIsAddDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Primer Contacto
+                  </Button>
+                )}
+              </div>
+            ) : (
             <div className="space-y-4">
               {filteredContacts.map((contact) => (
                 <div key={contact.id} className="flex items-center justify-between p-4 border rounded-lg">
@@ -478,14 +508,8 @@ export function ContactsManager() {
                   </div>
                 </div>
               ))}
-              
-              {filteredContacts.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No se encontraron contactos</p>
-                </div>
-              )}
             </div>
+            )}
           </CardContent>
         </Card>
 
