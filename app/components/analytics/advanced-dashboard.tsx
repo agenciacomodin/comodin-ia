@@ -39,6 +39,8 @@ const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'
 export function AdvancedDashboard() {
   const [timeRange, setTimeRange] = useState('7d');
   const [stats, setStats] = useState<any>(null);
+  const [campaignStats, setCampaignStats] = useState<any>(null);
+  const [conversationsData, setConversationsData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,11 +50,24 @@ export function AdvancedDashboard() {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/analytics?range=${timeRange}`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
+      // Fetch analytics generales
+      const analyticsResponse = await fetch(`/api/analytics?range=${timeRange}`);
+      if (analyticsResponse.ok) {
+        const analyticsData = await analyticsResponse.json();
+        setStats(analyticsData);
       }
+
+      // Fetch estadísticas de campañas
+      const campaignsResponse = await fetch('/api/campaigns/stats');
+      if (campaignsResponse.ok) {
+        const campaignsData = await campaignsResponse.json();
+        setCampaignStats(campaignsData);
+      }
+
+      // TODO: Fetch datos de conversaciones por día cuando la API esté disponible
+      // Por ahora dejamos el array vacío
+      setConversationsData([]);
+
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -76,39 +91,18 @@ export function AdvancedDashboard() {
     }
   };
 
-  // Mock data for demonstration
-  const conversationsData = [
-    { name: 'Lun', total: 45, resueltas: 38 },
-    { name: 'Mar', total: 52, resueltas: 45 },
-    { name: 'Mié', total: 48, resueltas: 42 },
-    { name: 'Jue', total: 61, resueltas: 55 },
-    { name: 'Vie', total: 55, resueltas: 48 },
-    { name: 'Sáb', total: 38, resueltas: 35 },
-    { name: 'Dom', total: 32, resueltas: 30 },
-  ];
+  // Preparar datos de campañas para gráficos
+  const campaignData = campaignStats ? [
+    { name: 'Enviados', value: campaignStats.totalMessagesSent || 0 },
+    { name: 'Entregados', value: campaignStats.totalMessagesDelivered || 0 },
+    { name: 'Leídos', value: campaignStats.totalMessagesRead || 0 },
+  ] : [];
 
-  const campaignData = [
-    { name: 'Enviados', value: 1250 },
-    { name: 'Entregados', value: 1180 },
-    { name: 'Leídos', value: 950 },
-    { name: 'Respondidos', value: 420 },
-  ];
+  // TODO: Implementar cuando haya API de revenue/ingresos
+  const revenueData: any[] = [];
 
-  const revenueData = [
-    { month: 'Ene', ingreso: 4200 },
-    { month: 'Feb', ingreso: 5100 },
-    { month: 'Mar', ingreso: 4800 },
-    { month: 'Abr', ingreso: 6200 },
-    { month: 'May', ingreso: 5900 },
-    { month: 'Jun', ingreso: 7100 },
-  ];
-
-  const agentPerformance = [
-    { name: 'María García', conversaciones: 85, satisfaccion: 4.8 },
-    { name: 'Juan Pérez', conversaciones: 72, satisfaccion: 4.6 },
-    { name: 'Ana López', conversaciones: 68, satisfaccion: 4.7 },
-    { name: 'Carlos Ruiz', conversaciones: 65, satisfaccion: 4.5 },
-  ];
+  // TODO: Implementar cuando haya API de performance de agentes
+  const agentPerformance: any[] = [];
 
   if (loading) {
     return (

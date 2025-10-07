@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -42,65 +42,39 @@ interface Transaction {
   paymentMethod: 'stripe' | 'mercadopago'
 }
 
-const mockPaymentMethods: PaymentMethod[] = [
-  {
-    id: '1',
-    type: 'stripe',
-    currency: 'USD',
-    last4: '4242',
-    expiryMonth: 12,
-    expiryYear: 2025,
-    isDefault: true
-  },
-  {
-    id: '2',
-    type: 'mercadopago',
-    currency: 'ARS',
-    last4: '5555',
-    expiryMonth: 6,
-    expiryYear: 2026,
-    isDefault: false
-  }
-]
-
-const mockTransactions: Transaction[] = [
-  {
-    id: '1',
-    amount: 29.99,
-    currency: 'USD',
-    status: 'completed',
-    description: 'Plan Emprendedor - Marzo 2024',
-    date: '2024-03-01',
-    paymentMethod: 'stripe'
-  },
-  {
-    id: '2',
-    amount: 8900,
-    currency: 'ARS',
-    status: 'completed',
-    description: 'Plan Emprendedor - Febrero 2024',
-    date: '2024-02-01',
-    paymentMethod: 'mercadopago'
-  },
-  {
-    id: '3',
-    amount: 29.99,
-    currency: 'USD',
-    status: 'pending',
-    description: 'Plan Emprendedor - Abril 2024',
-    date: '2024-04-01',
-    paymentMethod: 'stripe'
-  }
-]
-
 export function PaymentsManager() {
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'ARS'>('USD')
   const [isAddMethodDialogOpen, setIsAddMethodDialogOpen] = useState(false)
-  const [paymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods)
-  const [transactions] = useState<Transaction[]>(mockTransactions)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const { toast } = useToast()
+
+  useEffect(() => {
+    fetchPaymentData()
+  }, [])
+
+  const fetchPaymentData = async () => {
+    setLoading(true)
+    try {
+      // Fetch payment methods
+      const methodsRes = await fetch('/api/payments')
+      if (methodsRes.ok) {
+        const data = await methodsRes.json()
+        setPaymentMethods(data.paymentMethods || [])
+      }
+
+      // Fetch transaction history
+      // TODO: Implementar cuando la API esté disponible
+      setTransactions([])
+    } catch (error) {
+      console.error('Error fetching payment data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const [newPaymentMethod, setNewPaymentMethod] = useState({
     cardNumber: '',

@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -41,35 +41,6 @@ interface ReportData {
   }
 }
 
-const mockData: ReportData = {
-  conversations: 3247,
-  newLeads: 428,
-  conversionRate: 24.3,
-  closedSales: 104,
-  revenue: 87400,
-  previousPeriod: {
-    conversations: 2741,
-    newLeads: 382,
-    conversionRate: 24.8,
-    closedSales: 96,
-    revenue: 75800
-  }
-}
-
-const agentData = [
-  { name: 'Ana Martínez', role: 'Agente Senior', conversations: 87 },
-  { name: 'Luis García', role: 'Agente', conversations: 73 },
-  { name: 'Carmen López', role: 'Agente', conversations: 68 },
-  { name: 'Diego Ruiz', role: 'Agente Junior', conversations: 52 }
-]
-
-const channelData = [
-  { name: 'WhatsApp', count: 2847, percentage: 87.6, color: 'bg-green-500' },
-  { name: 'Email', count: 289, percentage: 8.9, color: 'bg-blue-500' },
-  { name: 'Teléfono', count: 87, percentage: 2.7, color: 'bg-purple-500' },
-  { name: 'Web Chat', count: 24, percentage: 0.8, color: 'bg-orange-500' }
-]
-
 export function ReportsManager() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
@@ -78,6 +49,63 @@ export function ReportsManager() {
   
   const [quickPeriod, setQuickPeriod] = useState('last30days')
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [reportData, setReportData] = useState<ReportData | null>(null)
+  const [agentData, setAgentData] = useState<any[]>([])
+  const [channelData, setChannelData] = useState<any[]>([])
+
+  useEffect(() => {
+    fetchReportData()
+  }, [dateRange])
+
+  const fetchReportData = async () => {
+    setLoading(true)
+    try {
+      // Fetch analytics data
+      const analyticsRes = await fetch('/api/analytics?range=30d')
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json()
+        
+        // Construir datos del reporte desde analytics
+        setReportData({
+          conversations: analyticsData.totalConversations || 0,
+          newLeads: analyticsData.totalContacts || 0,
+          conversionRate: 0, // TODO: Calcular cuando haya datos de conversión
+          closedSales: 0, // TODO: Implementar cuando haya API de ventas
+          revenue: 0, // TODO: Implementar cuando haya API de ingresos
+          previousPeriod: {
+            conversations: 0,
+            newLeads: 0,
+            conversionRate: 0,
+            closedSales: 0,
+            revenue: 0
+          }
+        })
+      }
+
+      // Fetch team data for agent performance
+      const teamRes = await fetch('/api/team')
+      if (teamRes.ok) {
+        const teamData = await teamRes.json()
+        if (teamData.members) {
+          // TODO: Agregar conteo de conversaciones por agente cuando la API lo soporte
+          setAgentData(teamData.members.map((member: any) => ({
+            name: member.name || member.email,
+            role: member.role,
+            conversations: 0 // TODO: Implementar conteo real
+          })))
+        }
+      }
+
+      // TODO: Fetch channel distribution data cuando la API esté disponible
+      setChannelData([])
+
+    } catch (error) {
+      console.error('Error fetching report data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   
   const [filters, setFilters] = useState({
@@ -127,15 +155,47 @@ export function ReportsManager() {
   }
 
   const calculatedData = useMemo(() => {
-    // Simulamos el cálculo de diferencias porcentuales
-    const conversationsGrowth = ((mockData.conversations - mockData.previousPeriod.conversations) / mockData.previousPeriod.conversations) * 100
-    const leadsGrowth = ((mockData.newLeads - mockData.previousPeriod.newLeads) / mockData.previousPeriod.newLeads) * 100
-    const conversionChange = mockData.conversionRate - mockData.previousPeriod.conversionRate
-    const salesGrowth = ((mockData.closedSales - mockData.previousPeriod.closedSales) / mockData.previousPeriod.closedSales) * 100
-    const revenueGrowth = ((mockData.revenue - mockData.previousPeriod.revenue) / mockData.previousPeriod.revenue) * 100
+    if (!reportData) {
+      return {
+        conversations: 0,
+        newLeads: 0,
+        conversionRate: 0,
+        closedSales: 0,
+        revenue: 0,
+        previousPeriod: {
+          conversations: 0,
+          newLeads: 0,
+          conversionRate: 0,
+          closedSales: 0,
+          revenue: 0
+        },
+        growth: {
+          conversations: 0,
+          leads: 0,
+          conversion: 0,
+          sales: 0,
+          revenue: 0
+        }
+      }
+    }
+
+    // Calcular diferencias porcentuales con datos reales
+    const conversationsGrowth = reportData.previousPeriod.conversations > 0
+      ? ((reportData.conversations - reportData.previousPeriod.conversations) / reportData.previousPeriod.conversations) * 100
+      : 0
+    const leadsGrowth = reportData.previousPeriod.newLeads > 0
+      ? ((reportData.newLeads - reportData.previousPeriod.newLeads) / reportData.previousPeriod.newLeads) * 100
+      : 0
+    const conversionChange = reportData.conversionRate - reportData.previousPeriod.conversionRate
+    const salesGrowth = reportData.previousPeriod.closedSales > 0
+      ? ((reportData.closedSales - reportData.previousPeriod.closedSales) / reportData.previousPeriod.closedSales) * 100
+      : 0
+    const revenueGrowth = reportData.previousPeriod.revenue > 0
+      ? ((reportData.revenue - reportData.previousPeriod.revenue) / reportData.previousPeriod.revenue) * 100
+      : 0
 
     return {
-      ...mockData,
+      ...reportData,
       growth: {
         conversations: conversationsGrowth,
         leads: leadsGrowth,
@@ -144,7 +204,7 @@ export function ReportsManager() {
         revenue: revenueGrowth
       }
     }
-  }, [dateRange])
+  }, [reportData, dateRange])
 
   const handleExport = () => {
     const reportData = {

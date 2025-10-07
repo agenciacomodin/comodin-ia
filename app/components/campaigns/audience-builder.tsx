@@ -72,16 +72,31 @@ export default function AudienceBuilder({
 
   const loadAvailableData = async () => {
     try {
-      // TODO: Implementar APIs para obtener tags y canales disponibles
-      // Por ahora usamos datos mock
-      setAvailableTags(['Cliente VIP', 'Lead Caliente', 'Prospecto', 'Cliente Frecuente', 'Nuevo Cliente'])
-      setAvailableChannels([
-        { id: 'channel1', name: 'WhatsApp Principal' },
-        { id: 'channel2', name: 'WhatsApp Ventas' },
-        { id: 'channel3', name: 'WhatsApp Soporte' }
-      ])
+      // Cargar tags disponibles desde la API
+      const tagsResponse = await fetch('/api/contacts/tags')
+      if (tagsResponse.ok) {
+        const tagsData = await tagsResponse.json()
+        if (tagsData.success && tagsData.data) {
+          setAvailableTags(tagsData.data.map((tag: any) => tag.name))
+        }
+      }
+
+      // Cargar canales disponibles desde la API
+      const channelsResponse = await fetch('/api/whatsapp/instance')
+      if (channelsResponse.ok) {
+        const channelsData = await channelsResponse.json()
+        if (channelsData.success && channelsData.data) {
+          setAvailableChannels(channelsData.data.map((channel: any) => ({
+            id: channel.id,
+            name: channel.name || channel.instanceName || 'WhatsApp'
+          })))
+        }
+      }
     } catch (error) {
       console.error('Error loading available data:', error)
+      // Fallback a arrays vacíos en caso de error
+      setAvailableTags([])
+      setAvailableChannels([])
     }
   }
 

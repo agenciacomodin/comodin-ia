@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -42,40 +42,52 @@ interface OwnerDashboardProps {
 export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview')
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
+  
+  // Estados para datos reales de las APIs
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [conversations, setConversations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data para team members - en producción esto vendría de la API
-  const mockTeamMembers = [
-    {
-      id: user.id,
-      name: user.name || 'Propietario',
-      email: user.email,
-      role: user.role,
-      isActive: true,
-      lastLogin: new Date(),
-      organizationId: user.organizationId,
-      organizationName: organization.name
-    },
-    {
-      id: 'agent1',
-      name: 'Ana Martínez',
-      email: 'ana@empresa.com',
-      role: 'AGENTE' as const,
-      isActive: true,
-      lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000), // Hace 2 horas
-      organizationId: user.organizationId,
-      organizationName: organization.name
-    },
-    {
-      id: 'agent2',
-      name: 'Luis García',
-      email: 'luis@empresa.com',
-      role: 'AGENTE' as const,
-      isActive: true,
-      lastLogin: new Date(Date.now() - 24 * 60 * 60 * 1000), // Hace 1 día
-      organizationId: user.organizationId,
-      organizationName: organization.name
+  // Cargar datos reales de las APIs
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Fetch analytics
+        const analyticsRes = await fetch('/api/analytics?range=7d')
+        if (analyticsRes.ok) {
+          const analyticsData = await analyticsRes.json()
+          setAnalytics(analyticsData)
+        }
+
+        // Fetch team members
+        const teamRes = await fetch('/api/team')
+        if (teamRes.ok) {
+          const teamData = await teamRes.json()
+          setTeamMembers(teamData.members || [])
+        }
+
+        // Fetch recent conversations
+        const conversationsRes = await fetch('/api/conversations?limit=5')
+        if (conversationsRes.ok) {
+          const conversationsData = await conversationsRes.json()
+          setConversations(conversationsData.conversations || [])
+        }
+
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err)
+        setError('Error al cargar los datos del dashboard')
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    fetchDashboardData()
+  }, [])
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -135,11 +147,17 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                 <MessageCircle className="h-5 w-5 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">47</div>
-                <div className="flex items-center text-xs text-muted-foreground mt-2">
-                  <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-                  +12% desde ayer
-                </div>
+                {loading ? (
+                  <div className="text-2xl font-bold text-gray-400">Cargando...</div>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">{analytics?.totalConversations || 0}</div>
+                    <div className="flex items-center text-xs text-muted-foreground mt-2">
+                      <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
+                      Últimos 7 días
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -149,11 +167,17 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                 <Users className="h-5 w-5 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{mockTeamMembers.length}</div>
-                <div className="flex items-center text-xs text-muted-foreground mt-2">
-                  <Activity className="h-3 w-3 mr-1 text-blue-500" />
-                  {mockTeamMembers.filter(m => m.isActive).length} agentes activos
-                </div>
+                {loading ? (
+                  <div className="text-2xl font-bold text-gray-400">Cargando...</div>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">{teamMembers.length}</div>
+                    <div className="flex items-center text-xs text-muted-foreground mt-2">
+                      <Activity className="h-3 w-3 mr-1 text-blue-500" />
+                      {teamMembers.filter(m => m.isActive !== false).length} agentes activos
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -166,15 +190,21 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
 
             <Card className="border-l-4 border-l-purple-500">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Respuesta Promedio</CardTitle>
-                <TrendingUp className="h-5 w-5 text-purple-500" />
+                <CardTitle className="text-sm font-medium">Total Mensajes</CardTitle>
+                <MessageSquare className="h-5 w-5 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">2.3m</div>
-                <div className="flex items-center text-xs text-muted-foreground mt-2">
-                  <Activity className="h-3 w-3 mr-1 text-purple-500" />
-                  -30s desde la semana pasada
-                </div>
+                {loading ? (
+                  <div className="text-2xl font-bold text-gray-400">Cargando...</div>
+                ) : (
+                  <>
+                    <div className="text-3xl font-bold">{analytics?.totalMessages || 0}</div>
+                    <div className="flex items-center text-xs text-muted-foreground mt-2">
+                      <Activity className="h-3 w-3 mr-1 text-purple-500" />
+                      Últimos 7 días
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -256,27 +286,43 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { customer: 'María González', message: 'Consulta sobre productos', agent: 'Ana', time: 'Hace 5 min', status: 'active' },
-                    { customer: 'Carlos López', message: 'Solicitud de cotización', agent: 'Luis', time: 'Hace 12 min', status: 'pending' },
-                    { customer: 'Sofía Martínez', message: 'Seguimiento de pedido', agent: 'Ana', time: 'Hace 25 min', status: 'resolved' }
-                  ].map((conversation, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <p className="font-semibold text-sm">{conversation.customer}</p>
-                        <p className="text-sm text-gray-600">{conversation.message}</p>
-                        <p className="text-xs text-gray-500">Agente: {conversation.agent} • {conversation.time}</p>
+                {loading ? (
+                  <div className="text-center py-8 text-gray-400">Cargando conversaciones...</div>
+                ) : conversations.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No hay conversaciones recientes</p>
+                    <p className="text-sm text-gray-400 mt-1">Las conversaciones aparecerán aquí cuando lleguen mensajes</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {conversations.slice(0, 5).map((conversation: any) => (
+                      <div key={conversation.id} className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sm">{conversation.contact?.name || conversation.phoneNumber}</p>
+                          <p className="text-sm text-gray-600 truncate max-w-xs">
+                            {conversation.lastMessage?.content || 'Sin mensajes'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {conversation.assignedTo?.name ? `Agente: ${conversation.assignedTo.name}` : 'Sin asignar'} • 
+                            {new Date(conversation.updatedAt).toLocaleString('es-ES', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              day: '2-digit',
+                              month: 'short'
+                            })}
+                          </p>
+                        </div>
+                        <Badge variant={
+                          conversation.status === 'ACTIVE' ? 'default' : 
+                          conversation.status === 'PENDING' ? 'secondary' : 'outline'
+                        }>
+                          {conversation.status}
+                        </Badge>
                       </div>
-                      <Badge variant={
-                        conversation.status === 'active' ? 'default' : 
-                        conversation.status === 'pending' ? 'secondary' : 'outline'
-                      }>
-                        {conversation.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -320,11 +366,35 @@ export function OwnerDashboard({ organization, user }: OwnerDashboardProps) {
 
         {/* Team Tab con jerarquía mejorada */}
         <TabsContent value="team" className="space-y-6">
-          <TeamHierarchyView
-            organization={organization}
-            members={mockTeamMembers}
-            currentUserRole={user.role}
-          />
+          {loading ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-gray-400">Cargando equipo...</div>
+              </CardContent>
+            </Card>
+          ) : teamMembers.length === 0 ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No hay miembros en el equipo</p>
+                  <p className="text-sm text-gray-400 mt-1">Invita a tu primer agente para comenzar</p>
+                  <ConditionalRender permissions={[Permission.INVITE_USERS]}>
+                    <Button className="mt-4" onClick={() => setInviteModalOpen(true)}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Invitar Agente
+                    </Button>
+                  </ConditionalRender>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <TeamHierarchyView
+              organization={organization}
+              members={teamMembers}
+              currentUserRole={user.role}
+            />
+          )}
           
           <ConditionalRender permissions={[Permission.INVITE_USERS]}>
             <InvitationsList onInvite={() => setInviteModalOpen(true)} />

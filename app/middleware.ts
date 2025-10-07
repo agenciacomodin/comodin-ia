@@ -42,7 +42,7 @@ const ROUTE_ACCESS_CONFIG: Record<string, {
     accessLevel: AccessLevel.MULTI_TENANT
   },
   '/dashboard': {
-    allowedRoles: ['PROPIETARIO', 'AGENTE'],
+    allowedRoles: ['SUPER_ADMIN', 'PROPIETARIO', 'AGENTE'],
     accessLevel: AccessLevel.ORGANIZATION
   },
   '/settings/organization': {
@@ -88,14 +88,19 @@ export default withAuth(
                          )?.[1]
 
       if (routeConfig) {
-        // Verificar roles permitidos
-        if (routeConfig.allowedRoles && !routeConfig.allowedRoles.includes(userRole)) {
-          console.log(`[Middleware] Access denied - Role ${userRole} not allowed for ${pathname}`)
-          return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+        // SUPER_ADMIN tiene acceso completo a todas las rutas
+        if (userRole === 'SUPER_ADMIN') {
+          // Permitir acceso sin restricciones
+        } else {
+          // Verificar roles permitidos para otros usuarios
+          if (routeConfig.allowedRoles && !routeConfig.allowedRoles.includes(userRole)) {
+            console.log(`[Middleware] Access denied - Role ${userRole} not allowed for ${pathname}`)
+            return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+          }
         }
 
-        // Verificar nivel de acceso
-        if (routeConfig.accessLevel) {
+        // Verificar nivel de acceso (SUPER_ADMIN siempre tiene acceso completo)
+        if (routeConfig.accessLevel && userRole !== 'SUPER_ADMIN') {
           const userAccessLevel = getAccessLevel(userRole)
           const requiredAccessLevel = routeConfig.accessLevel
           
@@ -113,11 +118,13 @@ export default withAuth(
           }
         }
 
-        // Verificar permisos específicos usando la función existente
-        const userPermissions = getRolePermissions(userRole)
-        if (!canAccessRoute(userPermissions, pathname)) {
-          console.log(`[Middleware] Access denied - No permission for ${pathname}`)
-          return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+        // Verificar permisos específicos usando la función existente (SUPER_ADMIN siempre tiene acceso)
+        if (userRole !== 'SUPER_ADMIN') {
+          const userPermissions = getRolePermissions(userRole)
+          if (!canAccessRoute(userPermissions, pathname)) {
+            console.log(`[Middleware] Access denied - No permission for ${pathname}`)
+            return NextResponse.redirect(new URL(getDashboardRoute(userRole), req.url))
+          }
         }
       }
 

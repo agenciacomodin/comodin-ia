@@ -1,6 +1,7 @@
 
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,7 +15,8 @@ import {
   CreditCard,
   DollarSign,
   History,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from 'lucide-react'
 
 interface WalletPageProps {
@@ -22,35 +24,39 @@ interface WalletPageProps {
 }
 
 export function WalletPage({ organizationId }: WalletPageProps) {
-  // Datos de ejemplo - en una implementación real, estos vendrían de la API
-  const balance = 150.75
-  const monthlyUsage = 89.32
-  const transactions = [
-    {
-      id: '1',
-      type: 'recharge' as const,
-      amount: 100.00,
-      description: 'Recarga manual',
-      date: new Date('2024-01-15'),
-      status: 'completed' as const
-    },
-    {
-      id: '2',
-      type: 'usage' as const,
-      amount: -12.50,
-      description: 'Uso de IA - Conversaciones',
-      date: new Date('2024-01-14'),
-      status: 'completed' as const
-    },
-    {
-      id: '3',
-      type: 'usage' as const,
-      amount: -8.25,
-      description: 'Uso de IA - Generación de respuestas',
-      date: new Date('2024-01-13'),
-      status: 'completed' as const
+  const [loading, setLoading] = useState(true)
+  const [walletData, setWalletData] = useState<any>(null)
+  const [transactions, setTransactions] = useState<any[]>([])
+
+  useEffect(() => {
+    fetchWalletData()
+  }, [organizationId])
+
+  const fetchWalletData = async () => {
+    setLoading(true)
+    try {
+      // Fetch wallet balance
+      const walletRes = await fetch('/api/wallet')
+      if (walletRes.ok) {
+        const data = await walletRes.json()
+        setWalletData(data)
+      }
+
+      // Fetch transactions
+      const transactionsRes = await fetch('/api/wallet/transactions')
+      if (transactionsRes.ok) {
+        const data = await transactionsRes.json()
+        setTransactions(data.transactions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching wallet data:', error)
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
+
+  const balance = walletData?.balance || 0
+  const monthlyUsage = walletData?.monthlyUsage || 0
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -67,6 +73,14 @@ export function WalletPage({ organizationId }: WalletPageProps) {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
